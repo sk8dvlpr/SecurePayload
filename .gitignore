@@ -1,0 +1,46 @@
+# --- Composer (library) ---
+/vendor/
+/composer.phar
+/composer.lock   # NOTE: ignore for libraries. For applications, commit this file.
+
+# --- Environment & secrets ---
+.env
+.env.*
+
+# --- Build & artifacts ---
+/build/
+/dist/
+/coverage/
+/reports/
+/artifacts/
+
+# --- Caches & temp ---
+/.tmp/
+/temp/
+/cache/
+/var/
+/storage/
+/logs/
+/*.log
+/.phpunit.result.cache
+/.phpunit.cache/
+/.php-cache/
+/.php-cs-fixer.cache
+/.phpcs-cache
+/.phpstan/
+/.phpstan/cache
+/psalm.xml.cache
+
+# --- Tooling configs (keep the .dist templates) ---
+/phpunit.xml
+/phpcs.xml
+/phpmd.xml
+/phpstan.neon.local
+/phpstan.neon.dist.local
+
+# --- IDE & OS ---
+/.idea/
+/.vscode/
+/*.iml
+.DS_Store
+Thumbs.db

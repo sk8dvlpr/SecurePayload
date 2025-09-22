@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.0', '8.1', '8.2', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sodium, curl, json, mbstring
+          coverage: none
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Lint (syntax)
+        run: find src -name "*.php" -print0 | xargs -0 -n1 php -l
+      - name: Static Analysis (PHPStan)
+        run: vendor/bin/phpstan analyse -c phpstan.neon
+      - name: Run tests
+        run: vendor/bin/phpunit

@@ -5,14 +5,6 @@ namespace SecurePayload\KMS;
 
 interface SecureKeyProvider
 {
-    /**
-     * Ambil rahasia milik kombinasi (clientId, keyId).
-     * Return:
-     *  [
-     *    'hmacSecret' => ?string,   // RAW STRING (bukan base64)
-     *    'aeadKeyB64' => ?string,   // BASE64 32 byte
-     *  ]
-     * Jika tidak ditemukan / tidak aktif, kembalikan [].
-     */
+    /** @return array{hmacSecret:?string,aeadKeyB64:?string} */
     public function load(string $clientId, string $keyId): array;
 }
