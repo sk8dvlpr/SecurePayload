@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*.*.*'
 
+# Penting: beri akses write ke contents agar bisa create release
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build & Release

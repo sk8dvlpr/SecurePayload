@@ -152,32 +152,6 @@ $wrappedB64 = $kms->wrap('kek1', $rawKey32, ['purpose'=>'securepayload-aead-key'
 
 ---
 
-## Pengembangan
-
-### Test & Static Analysis
-```bash
-composer install
-composer stan
-composer test
-```
-
-### GitHub Actions
-- CI sudah disertakan: `.github/workflows/ci.yml` (matrix PHP 8.0–8.3).
-
-### .gitignore
-Untuk library, **abaikan `composer.lock`**. Contoh `.gitignore` ada di dokumentasi percakapan.
-
----
-
-## Rilis ke Packagist
-Lihat **[PACKAGIST_TUTORIAL.md](./PACKAGIST_TUTORIAL.md)** untuk langkah mendetail:
-- Submit paket pertama kali
-- Hubungkan Auto-Update (GitHub integration)
-- Buat & push tag (`vX.Y.Z`)
-- Checklist rilis & troubleshooting
-
----
-
 ## Examples
 Contoh middleware siap pakai:
 - **Laravel**: `examples/laravel/SecurePayloadMiddleware.php`
