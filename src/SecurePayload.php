@@ -30,6 +30,7 @@ final class SecurePayload
     public const HX_SIG_ALG     = 'X-Signature-Algorithm';
     public const HX_SIGNATURE   = 'X-Signature';
     public const HX_BODY_DIGEST = 'X-Body-Digest';
+    public const HX_CANON_REQ   = 'X-Canonical-Request';
     public const HX_AEAD_NONCE  = 'X-AEAD-Nonce';
     public const HX_AEAD_ALG    = 'X-AEAD-Algorithm';
 
@@ -137,6 +138,7 @@ final class SecurePayload
             self::HX_TIMESTAMP => $ts,
             self::HX_NONCE     => $nonceB64,
             self::HX_SIG_VER   => $ver,
+            self::HX_CANON_REQ => $method . "\n" . $path . "\n" . $qStr,
         ];
 
         if ($this->mode === 'aead') {
@@ -285,6 +287,9 @@ $ctB64      = base64_encode($ciphertext);
                 'status' => $e->getCode() ?: SecurePayloadException::BAD_REQUEST,
                 'error' => $e->getMessage(),
                 'debug' => $e->getContext(),
+                'mode' => "",
+                'bodyPlain' => "",
+                'json'  => null,
             ];
         }
     }
@@ -431,6 +436,69 @@ $ctB64      = base64_encode($ciphertext);
         }
 
         throw new SecurePayloadException('No valid security headers', SecurePayloadException::BAD_REQUEST);
+    }
+
+    /**
+     * Server-side (simple): cukup berikan headers + rawBody.
+     * Method/Path/Query diambil dari header X-Canonical-Request (dibuat client).
+     * @param array<string,string> $headers
+     * @param string $rawBody
+     * @return array{ok:bool, status?:int, error?:string, debug?:array<string,mixed>, mode?:string, bodyPlain?:string, json:mixed}
+     */
+    public function verifySimple(array $headers, string $rawBody): array
+    {
+        try {
+            $data = $this->verifySimpleOrThrow($headers, $rawBody);
+            return ['ok'=>true] + $data;
+        } catch (\SecurePayload\Exceptions\SecurePayloadException $e) {
+            return [
+                'ok' => false,
+                'status' => $e->getCode() ?: \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST,
+                'error' => $e->getMessage(),
+                'debug' => $e->getContext(),
+                'mode' => "",
+                'bodyPlain' => "",
+                'json'  => null,
+            ];
+        }
+    }
+
+    /**
+     * Server-side (simple): lempar exception jika invalid.
+     * Method/Path/Query dibaca dari header X-Canonical-Request.
+     * @param array<string,string> $headers
+     * @param string $rawBody
+     * @return array{mode:string, bodyPlain:string|null, json:mixed}
+     * @throws \SecurePayload\Exceptions\SecurePayloadException
+     */
+    public function verifySimpleOrThrow(array $headers, string $rawBody): array
+    {
+        // Normalisasi header jadi UPPER-KEY => value
+        $H = [];
+        foreach ($headers as $k => $v) {
+            if (!is_string($k)) { continue; }
+            $H[strtoupper($k)] = (string)$v;
+        }
+
+        $canon = $H[self::upper(self::HX_CANON_REQ)] ?? '';
+        if ($canon === '') {
+            throw new \SecurePayload\Exceptions\SecurePayloadException(
+                'Missing ' . self::HX_CANON_REQ . ' header; gunakan verify() lama dengan method/path/query atau aktifkan header kanonik di client.',
+                \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST
+            );
+        }
+
+        $parts = explode("\n", $canon, 3);
+        if (count($parts) !== 3) {
+            throw new \SecurePayload\Exceptions\SecurePayloadException(
+                'Bad canonical request header format',
+                \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST
+            );
+        }
+        [$method, $path, $qStr] = $parts;
+
+        // Teruskan ke jalur verifikasi penuh yang sudah ada
+        return $this->verifyOrThrow($headers, $rawBody, strtoupper($method), self::normalizePath($path), $qStr);
     }
 
     private static function upper(string $s): string { return strtoupper($s); }

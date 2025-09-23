@@ -1,21 +1,25 @@
 # Changelog
-All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
+## [1.1.1] - 2025-09-23
 ### Added
-- Initial public release workflow and examples (Laravel/CI4/Slim) middlewares.
-- GitHub Actions: CI (lint, phpstan, phpunit) and Release automation.
-- CHANGELOG.md template and coverage artifact.
+- Unit tests untuk API `verifySimple()`:
+  - HMAC / AEAD / BOTH happy path
+  - Missing `X-Canonical-Request`
+  - Replay detection dengan custom `replayStore`
+  - Timestamp out-of-range (HMAC; rekalkulasi signature agar isolasi error timing)
+  - AEAD nonce mismatch (BOTH)
+  - Body digest mismatch (HMAC)
+  - Signature mismatch (HMAC)
 
-### Changed
-- Improved docs: README + PACKAGIST_TUTORIAL.
+### Notes
+- Test AEAD/BOTH otomatis `markTestSkipped` jika `ext-sodium` tidak tersedia.
+- Semua test menggunakan API simple (`verifySimple($headers, $rawBody)`).
 
-### Fixed
-- N/A
-
-## [1.0.0] - YYYY-MM-DD
+## [1.1.0] - 2025-09-23
 ### Added
-- First stable release (HMAC/AEAD/BOTH in one class, anti-replay, ENV/DB providers, LocalKms).
+- API simple verification: `verifySimple()` dan `verifySimpleOrThrow()` (server cukup headers + body).
+- Header `X-Canonical-Request` (METHOD\nPATH\nQUERY) ditambahkan oleh client.
+
+## [1.0.0] - 2025-09-01
+### Added
+- Rilis awal: HMAC / AEAD / BOTH, anti-replay, key via ENV/DB, LocalKms, unit test & CI.
