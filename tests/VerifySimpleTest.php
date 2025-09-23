@@ -11,6 +11,26 @@ use SecurePayload\SecurePayload;
  */
 final class VerifySimpleTest extends TestCase
 {
+
+    /**
+     * Decode X-Canonical-Request from header.
+     * Supports new Base64 form and legacy raw form with newlines.
+     * @return array{0:string,1:string,2:string} [method, path, qStr]
+     */
+    private function canonPartsFromHeader(string $hdr): array
+    {
+        $canon = $hdr;
+        if (strpos($canon, "\n") === false) {
+            $decoded = base64_decode($canon, true);
+            if (is_string($decoded) && $decoded !== '') {
+                $canon = $decoded;
+            }
+        }
+        $parts = explode("\n", $canon, 3);
+        $this->assertCount(3, $parts, 'Bad canonical header format');
+        return [$parts[0], $parts[1], $parts[2]];
+    }
+
     public function testHmacVerifySimple(): void
     {
         $spClient = new SecurePayload([

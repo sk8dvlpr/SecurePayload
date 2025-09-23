@@ -7,10 +7,30 @@ use PHPUnit\Framework\TestCase;
 use SecurePayload\SecurePayload;
 
 /**
- * Extra security tests: replay, timestamp rage, nonce/digest/signature errors.
+ * Extra security tests: replay, timestamp range, nonce/digest/signature errors.
  */
 final class ReplayAndSecurityTest extends TestCase
 {
+
+    /**
+     * Decode X-Canonical-Request from header.
+     * Supports new Base64 form and legacy raw form with newlines.
+     * @return array{0:string,1:string,2:string} [method, path, qStr]
+     */
+    private function canonPartsFromHeader(string $hdr): array
+    {
+        $canon = $hdr;
+        if (strpos($canon, "\n") === false) {
+            $decoded = base64_decode($canon, true);
+            if (is_string($decoded) && $decoded !== '') {
+                $canon = $decoded;
+            }
+        }
+        $parts = explode("\n", $canon, 3);
+        $this->assertCount(3, $parts, 'Bad canonical header format');
+        return [$parts[0], $parts[1], $parts[2]];
+    }
+
     public function testReplayDetectionWithCustomStore(): void
     {
         $spClient = new SecurePayload([
@@ -23,7 +43,7 @@ final class ReplayAndSecurityTest extends TestCase
 
         [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/replay?x=9', 'POST', ['r'=>1]);
 
-        // Custom replayStore: return true only the first time a cacheKey is seen
+        // Custom replayStore: true only the first time a cacheKey is seen
         $seen = [];
         $replayStore = function(string $cacheKey, int $ttl) use (&$seen): bool {
             if (isset($seen[$cacheKey])) return false;
@@ -63,8 +83,7 @@ final class ReplayAndSecurityTest extends TestCase
         [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/hmac?y=1', 'POST', ['t'=>1]);
 
         // Parse canonical header for method/path/query to recompute signature
-        $parts = explode("\n", $headers[SecurePayload::HX_CANON_REQ], 3);
-        [$method, $path, $qStr] = $parts;
+        [$method, $path, $qStr] = $this->canonPartsFromHeader($headers[SecurePayload::HX_CANON_REQ]);
 
         // Tamper timestamp to far past and recompute signature accordingly
         $oldTs = (string) (time() - 999999);
@@ -72,7 +91,7 @@ final class ReplayAndSecurityTest extends TestCase
 
         $digestHeader = $headers[SecurePayload::HX_BODY_DIGEST];
         $digestB64 = substr($digestHeader, 7); // remove "sha256="
-        $msg = SecurePayload::hmacMessage('1', 'c3', 'k3', $oldTs, $headers[SecurePayload::HX_NONCE], $method, $path, $qStr, $digestB64);
+        $msg = SecurePayload::hmacMessage('1', 'c3', 'k3', $oldTs, $headers[SecurePayload::HX_NONCE], strtoupper($method), SecurePayload::normalizePath($path), $qStr, $digestB64);
         $headers[SecurePayload::HX_SIGNATURE] = base64_encode(hash_hmac('sha256', $msg, 'secret3', true));
 
         $spServer = new SecurePayload([
@@ -109,8 +128,9 @@ final class ReplayAndSecurityTest extends TestCase
         [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/nonce?z=9', 'POST', ['n'=>1]);
 
         // Tamper X-Canonical-Request path -> will make server calculate different AEAD nonce
-        $parts = explode("\n", $headers[SecurePayload::HX_CANON_REQ], 3);
-        $headers[SecurePayload::HX_CANON_REQ] = $parts[0] . "\n" . "/tampered" . "\n" . $parts[2];
+        [$m, $p, $q] = $this->canonPartsFromHeader($headers[SecurePayload::HX_CANON_REQ]);
+        $tampered = $m . "\n" . "/tampered" . "\n" . $q;
+        $headers[SecurePayload::HX_CANON_REQ] = base64_encode($tampered);
 
         $spServer = new SecurePayload([
             'mode'      => 'both',

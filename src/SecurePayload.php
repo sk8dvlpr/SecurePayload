@@ -138,7 +138,7 @@ final class SecurePayload
             self::HX_TIMESTAMP => $ts,
             self::HX_NONCE     => $nonceB64,
             self::HX_SIG_VER   => $ver,
-            self::HX_CANON_REQ => $method . "\n" . $path . "\n" . $qStr,
+            self::HX_CANON_REQ => base64_encode($method . "\n" . $path . "\n" . $qStr),
         ];
 
         if ($this->mode === 'aead') {
@@ -486,6 +486,13 @@ $ctB64      = base64_encode($ciphertext);
                 'Missing ' . self::HX_CANON_REQ . ' header; gunakan verify() lama dengan method/path/query atau aktifkan header kanonik di client.',
                 \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST
             );
+        }
+
+        if (strpos($canon, "\n") === false) {
+            $decoded = base64_decode($canon, true);
+            if (is_string($decoded)) {
+                $canon = $decoded;
+            }
         }
 
         $parts = explode("\n", $canon, 3);
