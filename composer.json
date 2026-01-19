@@ -34,5 +34,10 @@
   "scripts": {
     "test": "vendor/bin/phpunit",
     "stan": "vendor/bin/phpstan analyse src --level=5"
+  },
+  "config": {
+    "platform": {
+      "php": "8.0.28"
+    }
   }
 }
