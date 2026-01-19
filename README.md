@@ -1,161 +1,157 @@
 # SecurePayload
 
-> Library PHP (Composer) untuk **keamanan request**: `HMAC-SHA256`, `AEAD XChaCha20-Poly1305`, atau **BOTH** (encrypt + sign) — semua dalam **satu class**.
+> **The Ultimate Secure Request Library for PHP**
+>
+> Amankan komunikasi antar-server (S2S) atau Client-Server dengan mudah menggunakan standar kriptografi modern: **HMAC-SHA256** dan **AEAD (XChaCha20-Poly1305)**.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/sk8dvlpr/securepayload/ci.yml?label=CI)]()
-[![PHP](https://img.shields.io/badge/PHP-%E2%89%A5%208.0-blue)]()
-[![License: MIT]
-[![Packagist Version](https://img.shields.io/packagist/v/sk8dvlpr/securepayload.svg)](https://packagist.org/packages/sk8dvlpr/securepayload)
-[![Packagist Downloads](https://img.shields.io/packagist/dt/sk8dvlpr/securepayload.svg)](https://packagist.org/packages/sk8dvlpr/securepayload)(https://img.shields.io/badge/License-MIT-green.svg)]()
+[![CI](https://img.shields.io/github/actions/workflow/status/sk8dvlpr/securepayload/ci.yml?branch=main&label=CI&style=flat-square)]()
+[![PHP Version](https://img.shields.io/badge/php-%E2%89%A5%208.0-blue?style=flat-square)]()
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)]()
+[![Packagist Version](https://img.shields.io/packagist/v/sk8dvlpr/securepayload.svg?style=flat-square)](https://packagist.org/packages/sk8dvlpr/securepayload)
 
-- **Satu class** `SecurePayload\SecurePayload` yang menyatukan **client** & **server** use‑case.
-- **Anti‑replay** (TTL), cek **timestamp** + **nonce**, canonical signing, error handling jelas.
-- **Sumber key fleksibel**: ENV (`EnvKeyProvider`) atau DB (`DbKeyProvider`) + opsional `LocalKms` untuk unwrap AEAD key yang disimpan terenkripsi di DB.
-- Framework-agnostic (CI4/Laravel/Symfony/Slim/dll).
+**SecurePayload** adalah library PHP _all-in-one_ yang dirancang untuk mengatasi kompleksitas pengamanan API. Dengan satu class, Anda dapat menandatangani (Sign), mengenkripsi (Encrypt), dan memvalidasi request HTTP dengan perlindungan anti-replay attack yang ketat.
 
 ---
 
-## Instalasi
+## 🌟 Fitur Utama
+
+-   **Dual Security Mode**:
+    -   `HMAC`: Integritas data terjamin (Tanda tangan digital).
+    -   `AEAD`: Integritas + Kerahasiaan (Enkripsi penuh).
+    -   `BOTH`: Kombinasi keduanya untuk keamanan maksimal.
+-   **Anti-Replay Attack**: Proteksi otomatis menggunakan Timestamp dan Nonce Cache.
+-   **Zero Configuration**: Verifikasi cerdas yang mendeteksi algoritma secara otomatis.
+-   **Key Management System (KMS)**: Dukungan bawaan untuk rotasi kunci dan enkripsi kunci database (Key Wrapping).
+-   **Framework Agnostic**: Siap pakai untuk Laravel, CodeIgniter 4, Symfony, Slim, Lumen, dan Native PHP.
+
+---
+
+## 📦 Instalasi
+
+Install library via Composer:
+
 ```bash
 composer require sk8dvlpr/securepayload
 ```
-> Butuh `ext-sodium` untuk mode AEAD/BOTH, dan `ext-curl` jika pakai helper `send()`.
+
+> **Requirements**:
+> - PHP 8.0 atau lebih baru.
+> - Ekstensi `sodium` (wajib untuk mode AEAD/BOTH).
+> - Ekstensi `curl` (opsional, untuk helper client).
 
 ---
 
-## Quickstart
+## 🚀 Cara Kerja
 
-### Client: buat header & body
+SecurePayload bekerja dengan menyisipkan header keamanan standar industri ke dalam request HTTP Anda:
+
+1.  **Sender (Pengirim)**: Library akan melakukan canonicalization request, membuat hash (HMAC), dan mengenerate token unik (Nonce). Jika mode AEAD aktif, body request juga akan dienkripsi.
+2.  **Transmisi**: Request dikirim dengan header tambahan seperti `X-Signature`, `X-Timestamp`, `X-Nonce`, dll.
+3.  **Receiver (Penerima)**: Library memvalidasi timestamp (mencegah request kadaluarsa), mengecek nonce (mencegah replay), dan memverifikasi tanda tangan kriptografi.
+
+---
+
+## 📖 Quick Start
+
+### 1. Sisi Client (Pengirim Request)
+
 ```php
 use SecurePayload\SecurePayload;
 
-$sp = new SecurePayload([
-  'mode'         => 'both',      // 'hmac' | 'aead' | 'both'
-  'version'      => '1',
-  'clientId'     => 'my-client',
-  'keyId'        => 'k1',
-  'hmacSecretRaw'=> 'raw-hmac-secret',               // dibutuhkan saat HMAC/BOTH
-  'aeadKeyB64'   => base64_encode(random_bytes(32)), // dibutuhkan saat AEAD/BOTH
+// Inisialisasi dengan kredensial client
+$client = new SecurePayload([
+    'mode'          => 'both', // Encrypt + Sign
+    'clientId'      => 'client_001',
+    'keyId'         => 'key_v1',
+    'hmacSecretRaw' => hex2bin('af9...'), // 32 bytes raw binary
+    'aeadKeyB64'    => 'base64key...',    // 32 bytes base64
 ]);
 
-[$headers, $body] = $sp->buildHeadersAndBody(
-  'https://api.example.com/foo?x=1', 'POST', ['hello'=>'world']
-);
+$targetUrl = 'https://api.tujuan.com/v1/resource';
+$payload   = ['user_id' => 123, 'action' => 'debit'];
+
+// Generate Header Aman & Body Terenkripsi
+[$headers, $secureBody] = $client->buildHeadersAndBody($targetUrl, 'POST', $payload);
+
+// Kirim menggunakan HTTP Client favorit Anda (Guzzle, CURL, dll)
+// ...
 ```
 
-### Server: verifikasi (tanpa exception)
+### 2. Sisi Server (Penerima Request)
+
 ```php
 use SecurePayload\SecurePayload;
 use SecurePayload\KMS\EnvKeyProvider;
 
-$provider  = new EnvKeyProvider();
-$keyLoader = fn($cid,$kid) => $provider->load($cid,$kid);
+// Setup Provider Kunci (Bisa dari ENV atau Database)
+$provider = new EnvKeyProvider();
+$loader   = fn($cid, $kid) => $provider->load($cid, $kid);
 
-$sp = new SecurePayload(['mode'=>'both','version'=>'1','keyLoader'=>$keyLoader]);
+$server = new SecurePayload([
+    'mode'      => 'both',
+    'keyLoader' => $loader
+]);
 
-$vr = $sp->verify($headers, $rawBody, $method, $path, $query);
-if (!$vr['ok']) {
-  http_response_code($vr['status'] ?? 400);
-  echo json_encode(['error'=>$vr['error']]); exit;
+// Verifikasi Request Masuk
+$result = $server->verify(
+    getallheaders(),           // Array Header
+    file_get_contents('php://input'), // Raw Body
+    $_SERVER['REQUEST_METHOD'],
+    parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)
+);
+
+if (!$result['ok']) {
+    http_response_code(401);
+    die(json_encode(['error' => $result['error']]));
 }
-$data = $vr['json']; // payload terverifikasi & (jika BOTH/AEAD) sudah didekripsi
-```
 
-### Server (alternatif): verifikasi (dengan exception)
-```php
-try {
-  $result = $sp->verifyOrThrow($headers, $rawBody, $method, $path, $query);
-} catch (SecurePayload\Exceptions\SecurePayloadException $e) {
-  http_response_code($e->getCode() ?: 400);
-  echo json_encode(['error'=>$e->getMessage(), 'debug'=>$e->getContext()]); exit;
-}
+// Sukses! Data aman tersedia di $result['json']
+$data = $result['json']; 
 ```
 
 ---
 
-## Sumber Key
+## 📂 Contoh Integrasi Framework
 
-### Opsi A — ENV
-Variabel (scoped per client+key):
-- `SECUREPAYLOAD_{CLIENTID}_{KEYID}_HMAC_SECRET`
-- `SECUREPAYLOAD_{CLIENTID}_{KEYID}_AEAD_KEY_B64`
+Kami menyediakan contoh implementasi lengkap (Middleware & Service) untuk berbagai framework populer di dalam folder [`examples/`](examples/EXAMPLES.md):
 
-Fallback global (opsional):
-- `SECURE_HMAC_SECRET`
-- `SECURE_AEAD_KEY_B64`
+| Framework | Path | Deskripsi |
+| :--- | :--- | :--- |
+| **CodeIgniter 4** | [`examples/ci4/`](examples/ci4/) | Filter & Library Client |
+| **Laravel** | [`examples/laravel/`](examples/laravel/) | Middleware & Http Facade Service |
+| **Lumen** | [`examples/lumen/`](examples/lumen/) | Middleware & Guzzle Wrapper |
+| **Slim 4** | [`examples/slim/`](examples/slim/) | PSR-15 Middleware & PSR-18 Client |
+| **Symfony** | [`examples/symfony/`](examples/symfony/) | Event Subscriber & HttpClient Service |
+| **Native PHP** | [`examples/native/`](examples/native/) | Implementasi tanpa framework |
 
-**Contoh**
-```php
-use SecurePayload\KMS\EnvKeyProvider;
-$provider  = new EnvKeyProvider();
-$keyLoader = fn($cid,$kid) => $provider->load($cid,$kid);
-```
+Silakan baca [**Dokumentasi Examples**](examples/EXAMPLES.md) untuk detail lengkap cara penggunaannya.
 
-### Opsi B — DB (multi‑client)
-Tabel default `secure_keys`:
-- `client_id` (VARCHAR)
-- `key_id` (VARCHAR)
-- `hmac_secret` (TEXT; RAW string **bukan** base64)
-- `aead_key_b64` (TEXT; base64 32‑byte) **atau** `wrapped_b64` + `kek_id` (jika pakai KMS)
+---
+
+## 🔐 Manajemen Kunci (Key Management)
+
+Untuk aplikasi skala besar (Multi-Client), disarankan menggunakan **Database Key Provider**. SecurePayload menyediakan utility `KeyManager` untuk mempermudah ini.
+
+### Membuat Kunci Baru (dengan Enkripsi KMS)
 
 ```php
-use PDO;
-use SecurePayload\KMS\DbKeyProvider;
+use SecurePayload\KMS\KeyManager;
 use SecurePayload\KMS\LocalKms;
 
-$pdo = new PDO('mysql:host=localhost;dbname=app;charset=utf8mb4','user','pass');
-$kms = LocalKms::fromEnv(); // jika pakai wrapped_b64
-
-$provider  = new DbKeyProvider($pdo, [], $kms); // skema default
-$keyLoader = fn($cid,$kid) => $provider->load($cid,$kid);
-```
-
-**Skema MySQL contoh**
-```sql
-CREATE TABLE secure_keys (
-  client_id    VARCHAR(128) NOT NULL,
-  key_id       VARCHAR(128) NOT NULL,
-  hmac_secret  TEXT NULL,
-  aead_key_b64 TEXT NULL,
-  wrapped_b64  TEXT NULL,
-  kek_id       VARCHAR(64) NULL,
-  PRIMARY KEY (client_id, key_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-
----
-
-## Generate KEK (untuk LocalKms)
-Pilih salah satu:
-```bash
-openssl rand -base64 32
-# atau
-php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
-```
-Set ENV:
-```
-SECURE_KEKS=kek1
-SECURE_KEK_kek1_B64=<base64 32-byte di atas>
-```
-
----
-
-## Membungkus AEAD key ke DB (wrapped_b64)
-```php
-use SecurePayload\KMS\LocalKms;
-
+// 1. Setup KMS (Master Key Wrapper)
 $kms = LocalKms::fromEnv();
-$rawKey32 = random_bytes(32);
-$wrappedB64 = $kms->wrap('kek1', $rawKey32, ['purpose'=>'securepayload-aead-key']);
-# Simpan $wrappedB64 & kek_id='kek1' ke kolom DB
+
+// 2. Generate Kunci untuk Client Baru
+$manager = new KeyManager($kms);
+$creds   = $manager->generateKeyPair('client_002', 'key_v1', 'master_kek_id');
+
+// 3. Dapatkan Query SQL untuk insert ke DB
+echo $creds->toSqlInsert('secure_keys');
+// Output: INSERT INTO `secure_keys` ...
 ```
 
 ---
 
-## Examples
-Contoh middleware siap pakai:
-- **Laravel**: `examples/laravel/SecurePayloadMiddleware.php`
-- **CodeIgniter 4**: `examples/ci4/SecurePayloadFilter.php`
-- **Slim (PSR-15)**: `examples/slim/SecurePayloadMiddleware.php`
-- **Symfony**: `examples/symfony/SecurePayloadSubscriber.php`
-- **Lumen**: `examples/lumen/SecurePayloadMiddleware.php`
+## 📄 Lisensi
+
+Library ini bersifat open-source di bawah lisensi **MIT**. Silakan gunakan dan modifikasi sesuai kebutuhan proyek Anda.

@@ -1,45 +1,61 @@
 <?php
+
 declare(strict_types=1);
 
 namespace SecurePayload;
 
+use RuntimeException;
 use SecurePayload\Exceptions\SecurePayloadException;
 
 /**
  * SecurePayload
  * -------------
- * Satu kelas yang menggabungkan fungsi CLIENT dan SERVER untuk mengamankan request/response.
- * - Client: membangun header/signature dan body terenkripsi/tertanda (HMAC/AEAD/BOTH).
- * - Server: memverifikasi signature/digest, mencegah replay, dan mendekripsi payload.
+ * Kelas utilitas untuk mengamankan pertukaran data antara Client dan Server.
+ * Menyediakan mekanisme otentikasi (HMAC), enkripsi (AEAD), anti-replay, dan validasi integritas.
  *
- * Fitur utama:
- * - Mode keamanan: 'hmac' | 'aead' | 'both'
- * - Nonce + anti-replay TTL
- * - Timestamp validation & clock skew tolerance
- * - Key source fleksibel: loader callable (ENV/DB/KMS)
- * - Error-handling eksplisit (array) atau exception melalui verifyOrThrow()
+ * Fitur Utama:
+ * - Mode Keamanan: 'hmac' (Tanda tangan saja), 'aead' (Enkripsi saja), 'both' (Enkripsi + Tanda tangan).
+ * - Proteksi Replay: Menggunakan Nonce dan Timestamp dengan toleransi waktu.
+ * - Key Management: Mendukung loading key dari sumber eksternal (Database, KMS, Env).
+ * - Standar Kriptografi: Menggunakan SHA-256 untuk hashing dan XChaCha20-Poly1305 untuk enkripsi (jika tersedia).
+ *
+ * Contoh Penggunaan Singkat:
+ * - Client: Menggunakan `buildHeadersAndBody()` untuk membuat payload aman.
+ * - Server: Menggunakan `verify()` untuk memvalidasi request yang masuk.
  */
 final class SecurePayload
 {
-
-    public const HX_CLIENT_ID   = 'X-Client-Id';
-    public const HX_KEY_ID      = 'X-Key-Id';
-    public const HX_TIMESTAMP   = 'X-Timestamp';
-    public const HX_NONCE       = 'X-Nonce';
-    public const HX_SIG_VER     = 'X-Signature-Version';
-    public const HX_SIG_ALG     = 'X-Signature-Algorithm';
-    public const HX_SIGNATURE   = 'X-Signature';
+    /** Header untuk Identitas Client */
+    public const HX_CLIENT_ID = 'X-Client-Id';
+    /** Header untuk ID Kunci */
+    public const HX_KEY_ID = 'X-Key-Id';
+    /** Header untuk Timestamp Request */
+    public const HX_TIMESTAMP = 'X-Timestamp';
+    /** Header untuk Nonce Unik */
+    public const HX_NONCE = 'X-Nonce';
+    /** Header Versi Tanda Tangan */
+    public const HX_SIG_VER = 'X-Signature-Version';
+    /** Header Algoritma Tanda Tangan */
+    public const HX_SIG_ALG = 'X-Signature-Algorithm';
+    /** Header Nilai Tanda Tangan (Signature) */
+    public const HX_SIGNATURE = 'X-Signature';
+    /** Header Digest dari Body (Integritas Data) */
     public const HX_BODY_DIGEST = 'X-Body-Digest';
-    public const HX_CANON_REQ   = 'X-Canonical-Request';
-    public const HX_AEAD_NONCE  = 'X-AEAD-Nonce';
-    public const HX_AEAD_ALG    = 'X-AEAD-Algorithm';
+    /** Header Canonical Request (Informasi path/method yang ditandatangani) */
+    public const HX_CANON_REQ = 'X-Canonical-Request';
+    /** Header Nonce untuk AEAD */
+    public const HX_AEAD_NONCE = 'X-AEAD-Nonce';
+    /** Header Algoritma AEAD */
+    public const HX_AEAD_ALG = 'X-AEAD-Algorithm';
 
     public const HMAC_ALG = 'HMAC-SHA256';
     public const AEAD_ALG = 'XCHACHA20-POLY1305-IETF';
     public const DEFAULT_VERSION = '1';
 
-    /** @var 'hmac'|'aead'|'both' */
+    /** @var 'hmac'|'aead'|'both' Mode keamanan yang digunakan */
     private string $mode;
+
+    /** @var string Versi protokol */
     private string $version;
 
     private ?string $clientId;
@@ -47,16 +63,33 @@ final class SecurePayload
     private ?string $hmacSecretRaw;
     private ?string $aeadKeyB64;
 
-    /** @var callable|null function(string,string): array{hmacSecret:?string,aeadKeyB64:?string} */
+    /** @var callable(string,string): array{hmacSecret:?string,aeadKeyB64:?string}|null Fungsi untuk memuat kunci */
     private $keyLoader;
 
-    /** @var callable|null function(string,int): bool */
+    /** @var callable(string,int): bool|null Fungsi kustom untuk penyimpanan replay cache */
     private $replayStore;
 
-    private int $replayTtl = 120;
-    private int $clockSkew = 60;
+    /** @var int Time-to-live untuk replay protection (detik) */
+    private int $replayTtl;
+
+    /** @var int Toleransi perbedaan waktu jam server (detik) */
+    private int $clockSkew;
 
     /**
+     * Konstruktor SecurePayload
+     *
+     * Konfigurasi yang didukung dalam $opts:
+     * - mode: 'hmac' | 'aead' | 'both' (Default: 'both')
+     * - version: Versi protokol (Default: '1')
+     * - clientId: ID Client (Wajib untuk mode Client)
+     * - keyId: ID Key (Wajib untuk mode Client)
+     * - hmacSecretRaw: Secret key untuk HMAC (Raw string)
+     * - aeadKeyB64: Secret key untuk AEAD (Base64 string)
+     * - keyLoader: Callable untuk memuat kunci di sisi server
+     * - replayStore: Callable untuk custom storage replay protection
+     * - replayTtl: Durasi validitas nonce dalam detik (Default: 120)
+     * - clockSkew: Toleransi perbedaan jam dalam detik (Default: 60)
+     *
      * @param array{
      *   mode?: 'hmac'|'aead'|'both',
      *   version?: string,
@@ -68,168 +101,184 @@ final class SecurePayload
      *   replayStore?: callable|null,
      *   replayTtl?: int,
      *   clockSkew?: int
-     * } $opts Konfigurasi awal.
-     * @throws SecurePayloadException
+     * } $opts
+     * @throws SecurePayloadException Jika konfigurasi tidak valid
      */
     public function __construct(array $opts = [])
     {
-        $this->mode         = $opts['mode']      ?? 'both';
-        $this->version      = $opts['version']   ?? self::DEFAULT_VERSION;
-        $this->clientId     = $opts['clientId']  ?? null;
-        $this->keyId        = $opts['keyId']     ?? null;
-        $this->hmacSecretRaw= $opts['hmacSecretRaw'] ?? null;
-        $this->aeadKeyB64   = $opts['aeadKeyB64']    ?? null;
-        $this->keyLoader    = $opts['keyLoader'] ?? null;
-        $this->replayStore  = $opts['replayStore'] ?? null;
-        $this->replayTtl    = isset($opts['replayTtl']) ? (int)$opts['replayTtl'] : 120;
-        $this->clockSkew    = isset($opts['clockSkew']) ? (int)$opts['clockSkew'] : 60;
+        $this->mode = $opts['mode'] ?? 'both';
+        $this->version = $opts['version'] ?? self::DEFAULT_VERSION;
+        $this->clientId = $opts['clientId'] ?? null;
+        $this->keyId = $opts['keyId'] ?? null;
+        $this->hmacSecretRaw = $opts['hmacSecretRaw'] ?? null;
+        $this->aeadKeyB64 = $opts['aeadKeyB64'] ?? null;
+        $this->keyLoader = $opts['keyLoader'] ?? null;
+        $this->replayStore = $opts['replayStore'] ?? null;
+        $this->replayTtl = isset($opts['replayTtl']) ? (int) $opts['replayTtl'] : 120;
+        $this->clockSkew = isset($opts['clockSkew']) ? (int) $opts['clockSkew'] : 60;
 
-        if (!in_array($this->mode, ['hmac','aead','both'], true)) {
-            throw new SecurePayloadException('Invalid mode: '.$this->mode, SecurePayloadException::BAD_REQUEST);
+        if (!in_array($this->mode, ['hmac', 'aead', 'both'], true)) {
+            throw new SecurePayloadException('Mode tidak valid: ' . $this->mode, SecurePayloadException::BAD_REQUEST);
         }
         if ($this->version === '') {
-            throw new SecurePayloadException('Version cannot be empty', SecurePayloadException::BAD_REQUEST);
+            throw new SecurePayloadException('Versi tidak boleh kosong', SecurePayloadException::BAD_REQUEST);
         }
     }
 
-    /** @return array{0: array<string,string>, 1: string} */
     /**
-     * Client-side: membangun header keamanan + body yang sesuai mode.
+     * Membangun Header Keamanan dan Body Request (Client-Side).
      *
-     * - HMAC: Body = JSON plaintext, header berisi digest & signature.
-     * - AEAD: Body = JSON {"__aead_b64": base64(ciphertext)}, header berisi AEAD nonce.
-     * - BOTH: Enkripsi plaintext + tanda tangan digest plaintext.
+     * Fungsi ini mempersiapkan data yang akan dikirim ke server sesuai dengan mode keamanan.
+     * Mengembalikan array berisi headers yang harus disertakan dan body yang sudah diproses (misal dienkripsi).
      *
-     * @param string $url     URL lengkap (digunakan untuk canonical path & query)
-     * @param string $method  HTTP method (GET/POST/PUT/DELETE...)
-     * @param array  $payload Data yang akan dikirim (akan di-JSON-kan)
-     * @return array{0: array<string,string>, 1: string} [headers, body]
-     * @throws SecurePayloadException Ketika konfigurasi tidak valid / kunci tidak tersedia / JSON gagal.
+     * @param string $url     URL lengkap tujuan request (misal: https://api.com/v1/data?q=1)
+     * @param string $method  HTTP Method (GET, POST, dll)
+     * @param array  $payload Data payload dalam bentuk array asosiatif
+     * 
+     * @return array{0: array<string,string>, 1: string} Tuple [Headers array, Body string]
+     * 
+     * @throws SecurePayloadException Jika parameter salah atau enkripsi gagal
      */
     public function buildHeadersAndBody(string $url, string $method, array $payload): array
     {
-        if (!in_array($this->mode, ['hmac','aead','both'], true)) {
-            throw new SecurePayloadException('Unsupported mode', SecurePayloadException::BAD_REQUEST);
-        }
+        // Validasi kebutuhan kredensial dasar
         if (($this->clientId ?? '') === '' || ($this->keyId ?? '') === '') {
-            throw new SecurePayloadException('clientId & keyId are required for client mode', SecurePayloadException::BAD_REQUEST);
+            throw new SecurePayloadException('clientId & keyId wajib diisi untuk mode client', SecurePayloadException::BAD_REQUEST);
         }
 
         $method = strtoupper($method);
         $parts = parse_url($url);
         if ($parts === false) {
-            throw new SecurePayloadException('Invalid URL', SecurePayloadException::BAD_REQUEST);
+            throw new SecurePayloadException('Format URL tidak valid', SecurePayloadException::BAD_REQUEST);
         }
-        $path  = self::normalizePath($parts['path'] ?? '/');
-        $qStr  = '';
+
+        $path = self::normalizePath($parts['path'] ?? '/');
+        $qStr = '';
         if (!empty($parts['query'])) {
             parse_str($parts['query'], $qArr);
-            if (!is_array($qArr)) $qArr = [];
+            if (!is_array($qArr)) {
+                $qArr = [];
+            }
             $qStr = self::canonicalQuery($qArr);
         }
 
-        $ver      = $this->version;
-        $ts       = (string) time();
+        $ver = $this->version;
+        $ts = (string) time();
         $nonceB64 = self::genNonceB64();
 
+        // Header dasar yang selalu ada
         $headers = [
-            self::HX_CLIENT_ID => (string)$this->clientId,
-            self::HX_KEY_ID    => (string)$this->keyId,
+            self::HX_CLIENT_ID => (string) $this->clientId,
+            self::HX_KEY_ID => (string) $this->keyId,
             self::HX_TIMESTAMP => $ts,
-            self::HX_NONCE     => $nonceB64,
-            self::HX_SIG_VER   => $ver,
+            self::HX_NONCE => $nonceB64,
+            self::HX_SIG_VER => $ver,
+                // X-Canonical-Request dikirim sebagai debugging hint, BUKAN source of truth untuk keamanan server
             self::HX_CANON_REQ => base64_encode($method . "\n" . $path . "\n" . $qStr),
         ];
 
+        // --- MODE: AEAD (Enkripsi Saja) ---
         if ($this->mode === 'aead') {
-            $body = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-            if ($body === false) throw new SecurePayloadException('JSON encode failed', SecurePayloadException::BAD_REQUEST);
-            if (!extension_loaded('sodium')) {
-                throw new SecurePayloadException('ext-sodium required for AEAD mode', SecurePayloadException::SERVER_ERROR);
+            $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($body === false) {
+                throw new SecurePayloadException('Gagal encode JSON payload', SecurePayloadException::BAD_REQUEST);
             }
-            $aeadKeyB64 = $this->aeadKeyB64;
-            $aeadKeyRaw = base64_decode($aeadKeyB64 ?? '', true);
-            if (!is_string($aeadKeyRaw) || strlen($aeadKeyRaw) !== 32) {
-                throw new SecurePayloadException('Invalid AEAD key (base64 of 32 bytes required)', SecurePayloadException::BAD_REQUEST);
-            }
+            $this->ensureSodium();
 
-            $aeadNonce  = self::aeadNonceFrom($nonceB64, $method, $path, $qStr);
-            $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($body, $this->aeadAAD($ver), $aeadNonce, $aeadKeyRaw);
-$bodyB64    = base64_encode($ciphertext);
+            $aeadKeyRaw = $this->getAeadKeyRaw();
+            $aeadNonce = self::aeadNonceFrom($nonceB64, $method, $path, $qStr);
 
-            $headers[self::HX_AEAD_ALG]   = self::AEAD_ALG;
+            // Enkripsi body
+            $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
+                $body,
+                $this->aeadAAD($ver),
+                $aeadNonce,
+                $aeadKeyRaw
+            );
+            $bodyB64 = base64_encode($ciphertext);
+
+            $headers[self::HX_AEAD_ALG] = self::AEAD_ALG;
             $headers[self::HX_AEAD_NONCE] = base64_encode($aeadNonce);
 
+            // Output body dibungkus JSON khusus
             return [$headers, json_encode(['__aead_b64' => $bodyB64], JSON_UNESCAPED_SLASHES)];
         }
 
+        // --- MODE: BOTH (Enkripsi + HMAC) ---
         if ($this->mode === 'both') {
-            $plain = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-            if ($plain === false) throw new SecurePayloadException('JSON encode failed', SecurePayloadException::BAD_REQUEST);
-            if (!extension_loaded('sodium')) {
-                throw new SecurePayloadException('ext-sodium required for BOTH mode', SecurePayloadException::SERVER_ERROR);
+            $plain = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($plain === false) {
+                throw new SecurePayloadException('Gagal encode JSON payload', SecurePayloadException::BAD_REQUEST);
             }
-            $aeadKeyB64 = $this->aeadKeyB64;
-            $aeadKeyRaw = base64_decode($aeadKeyB64 ?? '', true);
-            if (!is_string($aeadKeyRaw) || strlen($aeadKeyRaw) !== 32) {
-                throw new SecurePayloadException('Invalid AEAD key (base64 of 32 bytes required)', SecurePayloadException::BAD_REQUEST);
-            }
+            $this->ensureSodium();
 
-            $aeadNonce  = self::aeadNonceFrom($nonceB64, $method, $path, $qStr);
-            $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($plain, $this->aeadAAD($ver), $aeadNonce, $aeadKeyRaw);
-$ctB64      = base64_encode($ciphertext);
-            $body       = json_encode(['__aead_b64' => $ctB64], JSON_UNESCAPED_SLASHES);
+            $aeadKeyRaw = $this->getAeadKeyRaw();
+            $aeadNonce = self::aeadNonceFrom($nonceB64, $method, $path, $qStr);
 
+            // Enkripsi
+            $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
+                $plain,
+                $this->aeadAAD($ver),
+                $aeadNonce,
+                $aeadKeyRaw
+            );
+            $ctB64 = base64_encode($ciphertext);
+            $body = json_encode(['__aead_b64' => $ctB64], JSON_UNESCAPED_SLASHES);
+
+            // Tanda tangan dilakukan terhadap Plaintext asli, bukan ciphertext
+            // agar server memverifikasi makna data, bukan bungkusnya.
             $digestB64 = self::bodyDigestB64($plain);
-            $msg       = self::hmacMessage($ver, (string)$this->clientId, (string)$this->keyId, $ts, $nonceB64, $method, $path, $qStr, $digestB64);
-            $hmac = hash_hmac('sha256', $msg, (string)$this->hmacSecretRaw, true);
-            $sigB64    = base64_encode($hmac);
+            $msg = self::hmacMessage($ver, (string) $this->clientId, (string) $this->keyId, $ts, $nonceB64, $method, $path, $qStr, $digestB64);
+            $hmac = hash_hmac('sha256', $msg, (string) $this->hmacSecretRaw, true);
+            $sigB64 = base64_encode($hmac);
 
-            $headers[self::HX_AEAD_ALG]    = self::AEAD_ALG;
-            $headers[self::HX_AEAD_NONCE]  = base64_encode($aeadNonce);
-            $headers[self::HX_SIG_ALG]     = self::HMAC_ALG;
+            $headers[self::HX_AEAD_ALG] = self::AEAD_ALG;
+            $headers[self::HX_AEAD_NONCE] = base64_encode($aeadNonce);
+            $headers[self::HX_SIG_ALG] = self::HMAC_ALG;
             $headers[self::HX_BODY_DIGEST] = 'sha256=' . $digestB64;
-            $headers[self::HX_SIGNATURE]   = $sigB64;
+            $headers[self::HX_SIGNATURE] = $sigB64;
 
             return [$headers, $body];
         }
 
-        // HMAC only
-        $plain     = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-        if ($plain === false) throw new SecurePayloadException('JSON encode failed', SecurePayloadException::BAD_REQUEST);
-        $digestB64 = self::bodyDigestB64($plain);
-        $msg       = self::hmacMessage($ver, (string)$this->clientId, (string)$this->keyId, $ts, $nonceB64, $method, $path, $qStr, $digestB64);
-        $hmac = hash_hmac('sha256', $msg, (string)$this->hmacSecretRaw, true);
-        $sigB64    = base64_encode($hmac);
+        // --- MODE: HMAC (Tanda Tangan Saja) ---
+        $plain = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($plain === false) {
+            throw new SecurePayloadException('Gagal encode JSON payload', SecurePayloadException::BAD_REQUEST);
+        }
 
-        $headers[self::HX_SIG_ALG]     = self::HMAC_ALG;
+        $digestB64 = self::bodyDigestB64($plain);
+        $msg = self::hmacMessage($ver, (string) $this->clientId, (string) $this->keyId, $ts, $nonceB64, $method, $path, $qStr, $digestB64);
+        $hmac = hash_hmac('sha256', $msg, (string) $this->hmacSecretRaw, true);
+        $sigB64 = base64_encode($hmac);
+
+        $headers[self::HX_SIG_ALG] = self::HMAC_ALG;
         $headers[self::HX_BODY_DIGEST] = 'sha256=' . $digestB64;
-        $headers[self::HX_SIGNATURE]   = $sigB64;
+        $headers[self::HX_SIGNATURE] = $sigB64;
 
         return [$headers, $plain];
     }
 
-    /** @return array{status:int, headers:array<string,string>, body:mixed, error:?string} */
     /**
-     * Helper opsional untuk mengirim request via cURL.
-     * Memanggil buildHeadersAndBody() lalu melakukan HTTP request.
+     * Mengirim Request HTTP secara Sederhana (Helper Wrapper cURL).
      *
-     * @param string               $url           URL tujuan
-     * @param string               $method        HTTP method
-     * @param array                $payload       Data payload
-     * @param array<string,string> $extraHeaders  Header tambahan (akan digabung)
+     * @param string $url URL Tujuan
+     * @param string $method HTTP Method
+     * @param array $payload Data Payload
+     * @param array<string,string> $extraHeaders Header tambahan jika diperlukan
+     * 
      * @return array{status:int, headers:array<string,string>, body:mixed, error:?string}
-     * @throws SecurePayloadException Jika ext-curl tidak ada atau buildHeadersAndBody gagal.
      */
     public function send(string $url, string $method, array $payload, array $extraHeaders = []): array
     {
-        if (!function_exists('curl_init')) {
-            throw new SecurePayloadException('ext-curl is required for send()', SecurePayloadException::SERVER_ERROR);
+        if (!extension_loaded('curl')) {
+            throw new SecurePayloadException('Ekstensi cURL diperlukan untuk metode send()', SecurePayloadException::SERVER_ERROR);
         }
+
         [$headers, $body] = $this->buildHeadersAndBody($url, $method, $payload);
 
         $outHeaders = [];
-        foreach ($headers + $extraHeaders as $k => $v) {
+        foreach (array_merge($headers, $extraHeaders) as $k => $v) {
             $outHeaders[] = $k . ': ' . $v;
         }
 
@@ -241,20 +290,24 @@ $ctB64      = base64_encode($ciphertext);
         curl_setopt($ch, CURLOPT_HEADER, true);
 
         $resp = curl_exec($ch);
-        $err  = $resp === false ? curl_error($ch) : null;
+        $err = $resp === false ? curl_error($ch) : null;
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $rawHeaders = substr((string)$resp, 0, $headerSize);
-        $bodyStr    = substr((string)$resp, $headerSize);
+
+        $rawHeaders = substr((string) $resp, 0, $headerSize);
+        $bodyStr = substr((string) $resp, $headerSize);
         curl_close($ch);
 
         $respHeaders = [];
         foreach (preg_split("/\r?\n/", $rawHeaders) as $line) {
             if (strpos($line, ':') !== false) {
                 [$hk, $hv] = array_map('trim', explode(':', $line, 2));
-                if ($hk !== '') $respHeaders[$hk] = $hv;
+                if ($hk !== '') {
+                    $respHeaders[$hk] = $hv;
+                }
             }
         }
+
         $json = json_decode($bodyStr, true);
         return [
             'status' => $code,
@@ -264,23 +317,24 @@ $ctB64      = base64_encode($ciphertext);
         ];
     }
 
-    /** @return array{ok:bool, status?:int, error?:string, debug?:array<string,mixed>, mode?:string, bodyPlain?:string, json?:mixed} */
     /**
-     * Server-side: verifikasi request.
-     * Mengembalikan array aman untuk dikonsumsi handler (tanpa exception).
+     * Verifikasi Request (Server-Side) - Aman, tanpa Exception.
+     * 
+     * Membungkus `verifyOrThrow` dalam try-catch untuk kemudahan penggunaan.
      *
-     * @param array<string,string>    $headers Header HTTP request
-     * @param string                  $rawBody Body mentah (string)
-     * @param string                  $method  HTTP method
-     * @param string                  $path    Path ("/api/..."), tanpa domain
-     * @param array|string             $query   Array query (key=>val) atau string query
+     * @param array<string,string> $headers Header dari request masuk
+     * @param string $rawBody Body mentah dari request
+     * @param string $method HTTP Method yang diterima server (WAJIB)
+     * @param string $path URL Path yang diterima server (WAJIB)
+     * @param array|string $query Query string atau array query
+     * 
      * @return array{ok:bool, status?:int, error?:string, debug?:array<string,mixed>, mode?:string, bodyPlain?:string, json?:mixed}
      */
     public function verify(array $headers, string $rawBody, string $method, string $path, $query): array
     {
         try {
             $data = $this->verifyOrThrow($headers, $rawBody, $method, $path, $query);
-            return ['ok'=>true] + $data;
+            return ['ok' => true] + $data;
         } catch (SecurePayloadException $e) {
             return [
                 'ok' => false,
@@ -289,144 +343,190 @@ $ctB64      = base64_encode($ciphertext);
                 'debug' => $e->getContext(),
                 'mode' => "",
                 'bodyPlain' => "",
-                'json'  => null,
+                'json' => null,
             ];
         }
     }
 
-    /** @return array{mode:string, bodyPlain:string|null, json:mixed} */
     /**
-     * Server-side: verifikasi request dan lempar exception bila invalid.
+     * Verifikasi Request dengan Exception jika tidak valid.
+     *
+     * Tahapan verifikasi:
+     * 1. Cek kelengkapan header wajib.
+     * 2. Validasi Timestamp (mencegah expired request).
+     * 3. Validasi Replay Attack (mencegah penggunaan ulang nonce).
+     * 4. Memuat kunci rahasia berdasarkan Client ID & Key ID.
+     * 5. Dekripsi (jika mode AEAD/BOTH) dan Verifikasi Signature (jika mode HMAC/BOTH).
      *
      * @param array<string,string> $headers
-     * @param string               $rawBody
-     * @param string               $method
-     * @param string               $path
-     * @param array|string         $query
+     * @param string $rawBody
+     * @param string $method
+     * @param string $path
+     * @param array|string $query
+     * 
      * @return array{mode:string, bodyPlain:string|null, json:mixed}
-     * @throws SecurePayloadException Untuk semua kondisi tidak valid (header kurang, timestamp, replay, AEAD/HMAC gagal, dll.).
+     * @throws SecurePayloadException Jika verifikasi gagal.
      */
     public function verifyOrThrow(array $headers, string $rawBody, string $method, string $path, $query): array
     {
+        // Normalisasi header key menjadi uppercase untuk pencarian case-insensitive (pseudo)
         $H = [];
         foreach ($headers as $k => $v) {
-            if (!is_string($k)) continue;
-            $H[strtoupper($k)] = (string)$v;
+            if (!is_string($k))
+                continue;
+            $H[strtoupper($k)] = (string) $v;
         }
 
-        $ver   = $H[self::upper(self::HX_SIG_VER)] ?? '';
-        $cid   = $H[self::upper(self::HX_CLIENT_ID)] ?? '';
-        $kid   = $H[self::upper(self::HX_KEY_ID)] ?? '';
+        $ver = $H[self::upper(self::HX_SIG_VER)] ?? '';
+        $cid = $H[self::upper(self::HX_CLIENT_ID)] ?? '';
+        $kid = $H[self::upper(self::HX_KEY_ID)] ?? '';
         $tsStr = $H[self::upper(self::HX_TIMESTAMP)] ?? '';
         $nonceB64 = $H[self::upper(self::HX_NONCE)] ?? '';
 
+        // 1. Validasi Keberadaan Header
         if ($ver === '' || $cid === '' || $kid === '' || $tsStr === '' || $nonceB64 === '') {
-            throw new SecurePayloadException('Missing required headers', SecurePayloadException::BAD_REQUEST);
+            throw new SecurePayloadException('Header keamanan tidak lengkap', SecurePayloadException::BAD_REQUEST);
         }
         if ($ver !== $this->version) {
-            throw new SecurePayloadException('Unsupported version', SecurePayloadException::BAD_REQUEST, ['got'=>$ver,'expected'=>$this->version]);
+            throw new SecurePayloadException('Versi protokol tidak didukung', SecurePayloadException::BAD_REQUEST, ['terima' => $ver, 'ekspektasi' => $this->version]);
         }
+
+        // 2. Validasi Timestamp
         if (!preg_match('/^\d+$/', $tsStr)) {
-            throw new SecurePayloadException('Bad timestamp', SecurePayloadException::BAD_REQUEST, ['value'=>$tsStr]);
+            throw new SecurePayloadException('Format timestamp salah', SecurePayloadException::BAD_REQUEST, ['nilai' => $tsStr]);
         }
+        $ts = (int) $tsStr;
+        $now = time();
 
-        $ts = (int)$tsStr; $now = time();
+        // Cek range waktu: tidak boleh masa depan (skew) dan tidak boleh terlalu lampau (ttl + skew)
         if ($ts > $now + $this->clockSkew || $ts < $now - ($this->replayTtl + $this->clockSkew)) {
-            throw new SecurePayloadException('Timestamp out of range', SecurePayloadException::UNAUTHORIZED, ['ts'=>$ts,'now'=>$now]);
+            throw new SecurePayloadException('Timestamp di luar batas wajar (kadaluarsa atau jam salah)', SecurePayloadException::UNAUTHORIZED, ['ts' => $ts, 'now' => $now]);
         }
 
-        $cacheKey = 'sp_' . substr(hash('sha256', $cid.'|'.$kid.'|'.$tsStr.'|'.$nonceB64), 0, 48);
-        if ($this->replayStore) {
-            $okNew = (bool) call_user_func($this->replayStore, $cacheKey, $this->replayTtl);
-            if (!$okNew) throw new SecurePayloadException('Replay detected', SecurePayloadException::UNAUTHORIZED);
-        } else {
-            $f = sys_get_temp_dir().'/'.$cacheKey;
-            if (file_exists($f)) {
-                $age = time() - (int) @filemtime($f);
-                if ($age < $this->replayTtl) {
-                    throw new SecurePayloadException('Replay detected', SecurePayloadException::UNAUTHORIZED, ['age'=>$age]);
-                }
-            }
-            @touch($f);
-        }
+        // 3. Proteksi Replay Attack
+        $this->checkReplay($cid, $kid, $tsStr, $nonceB64);
 
+        // Menyiapkan parameter request kanonik dari input Server (BUKAN dari header X-Canonical-Request)
         $method = strtoupper($method);
-        $path   = self::normalizePath($path ?: '/');
-        if (is_array($query)) $qStr = self::canonicalQuery($query);
-        else { parse_str((string)$query, $qArr); $qStr = self::canonicalQuery(is_array($qArr)?$qArr:[]); }
+        $path = self::normalizePath($path ?: '/');
 
-        $hmacRaw = null; $aeadB64 = null;
+        if (is_array($query)) {
+            $qStr = self::canonicalQuery($query);
+        } else {
+            parse_str((string) $query, $qArr);
+            $qStr = self::canonicalQuery(is_array($qArr) ? $qArr : []);
+        }
+
+        // 4. Load Kunci
+        $hmacRaw = null;
+        $aeadB64 = null;
         if ($this->keyLoader) {
             $keys = (array) call_user_func($this->keyLoader, $cid, $kid);
             $hmacRaw = $keys['hmacSecret'] ?? null;
             $aeadB64 = $keys['aeadKeyB64'] ?? null;
         }
 
-        $used = null;
-        $result = ['mode'=>null,'bodyPlain'=>null,'json'=>null];
+        $result = ['mode' => null, 'bodyPlain' => null, 'json' => null];
 
+        // --- Verifikasi AEAD / BOTH ---
         $aeadAlg = $H[self::upper(self::HX_AEAD_ALG)] ?? '';
         $aeadNonceHdrB64 = $H[self::upper(self::HX_AEAD_NONCE)] ?? '';
+
+        // Deteksi apakah ini request terenkripsi
         if (($this->mode === 'aead' || $this->mode === 'both') && $aeadAlg === self::AEAD_ALG) {
             $json = json_decode($rawBody, true);
             $blobB64 = is_array($json) ? ($json['__aead_b64'] ?? '') : '';
-            if ($blobB64 === '') throw new SecurePayloadException('Missing AEAD blob', SecurePayloadException::BAD_REQUEST);
+            if ($blobB64 === '') {
+                throw new SecurePayloadException('Payload AEAD tidak ditemukan', SecurePayloadException::BAD_REQUEST);
+            }
 
-            if (!extension_loaded('sodium')) throw new SecurePayloadException('ext-sodium required', SecurePayloadException::SERVER_ERROR);
+            $this->ensureSodium();
             $keyRaw = base64_decode($aeadB64 ?? '', true);
-            if (!is_string($keyRaw) || strlen($keyRaw) !== 32) throw new SecurePayloadException('AEAD key unavailable', SecurePayloadException::SERVER_ERROR);
+            if (!is_string($keyRaw) || strlen($keyRaw) !== 32) {
+                throw new SecurePayloadException('Kunci AEAD server tidak valid/tersedia', SecurePayloadException::SERVER_ERROR);
+            }
 
+            // Hitung ulang nonce yang seharusnya
             $nonceCalc = self::aeadNonceFrom($nonceB64, $method, $path, $qStr);
-            $nonceHdr  = base64_decode($aeadNonceHdrB64, true) ?: '';
+            $nonceHdr = base64_decode($aeadNonceHdrB64, true) ?: '';
+
+            // Verifikasi integritas nonce (mencegah pemindahan nonce curian ke konteks lain)
             if (!hash_equals($nonceHdr, $nonceCalc)) {
-                throw new SecurePayloadException('AEAD nonce mismatch', SecurePayloadException::UNAUTHORIZED);
+                throw new SecurePayloadException('Nonce mismatch (Integritas request invalid)', SecurePayloadException::UNAUTHORIZED);
             }
 
             $ct = base64_decode($blobB64, true);
-            if ($ct === false) throw new SecurePayloadException('AEAD body corrupt (base64)', SecurePayloadException::BAD_REQUEST);
+            if ($ct === false) {
+                throw new SecurePayloadException('Format base64 body rusak', SecurePayloadException::BAD_REQUEST);
+            }
 
-            $plain = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($ct, $this->aeadAAD($ver), $nonceCalc, $keyRaw);
-            if ($plain === false) throw new SecurePayloadException('AEAD decrypt failed', SecurePayloadException::UNAUTHORIZED);
+            // Dekripsi
+            $plain = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(
+                $ct,
+                $this->aeadAAD($ver),
+                $nonceCalc,
+                $keyRaw
+            );
+
+            if ($plain === false) {
+                throw new SecurePayloadException('Gagal mendekripsi (Kunci salah atau data rusak)', SecurePayloadException::UNAUTHORIZED);
+            }
 
             $used = ($this->mode === 'both') ? 'BOTH-AEAD' : 'AEAD';
             $result['mode'] = $used;
 
             if ($this->mode === 'aead') {
+                // Selesai jika hanya AEAD
                 $result['bodyPlain'] = $plain;
                 $result['json'] = json_decode($plain, true);
                 return $result;
             }
 
+            // Jika BOTH, hasil dekripsi dipakai sebagai input verifikasi HMAC
             $rawBodyForHmac = $plain;
+
+            // Verifikasi Digest Tambahan untuk integritas plaintext
             $digestHdr = $H[self::upper(self::HX_BODY_DIGEST)] ?? '';
             $calc = 'sha256=' . self::bodyDigestB64($rawBodyForHmac);
             if ($digestHdr !== $calc) {
-                throw new SecurePayloadException('Body digest mismatch', SecurePayloadException::UNPROCESSABLE, ['expected'=>$calc,'got'=>$digestHdr]);
+                throw new SecurePayloadException('Integritas Body Digest gagal', SecurePayloadException::UNPROCESSABLE, ['expected' => $calc, 'got' => $digestHdr]);
             }
         }
 
+        // --- Verifikasi HMAC / BOTH ---
         if ($this->mode === 'hmac' || $this->mode === 'both') {
-            $alg   = $H[self::upper(self::HX_SIG_ALG)]     ?? '';
-            $sigIn = $H[self::upper(self::HX_SIGNATURE)]   ?? '';
-            $digH  = $H[self::upper(self::HX_BODY_DIGEST)] ?? '';
-            if ($alg !== self::HMAC_ALG || $sigIn === '' || $digH === '') {
-                throw new SecurePayloadException('Bad HMAC headers', SecurePayloadException::BAD_REQUEST);
-            }
-            $digHVal = str_starts_with($digH,'sha256=') ? substr($digH,7) : '';
-            if ($digHVal === '') throw new SecurePayloadException('Bad digest format (sha256=...)', SecurePayloadException::BAD_REQUEST);
+            $alg = $H[self::upper(self::HX_SIG_ALG)] ?? '';
+            $sigIn = $H[self::upper(self::HX_SIGNATURE)] ?? '';
+            $digH = $H[self::upper(self::HX_BODY_DIGEST)] ?? '';
 
+            if ($alg !== self::HMAC_ALG || $sigIn === '' || $digH === '') {
+                throw new SecurePayloadException('Header HMAC tidak lengkap/salah algoritma', SecurePayloadException::BAD_REQUEST);
+            }
+
+            $digHVal = str_starts_with($digH, 'sha256=') ? substr($digH, 7) : '';
+            if ($digHVal === '') {
+                throw new SecurePayloadException('Format digest salah (harus sha256=...)', SecurePayloadException::BAD_REQUEST);
+            }
+
+            // Gunakan plaintext hasil dekripsi (jika ada) atau raw body asli
             $bodyForHmac = isset($rawBodyForHmac) ? $rawBodyForHmac : $rawBody;
+
+            // 1. Verifikasi Hash Body
             $calcDig = self::bodyDigestB64($bodyForHmac);
             if (!hash_equals($digHVal, $calcDig)) {
-                throw new SecurePayloadException('Body digest mismatch', SecurePayloadException::UNPROCESSABLE);
+                throw new SecurePayloadException('Integritas Body Digest HMAC gagal', SecurePayloadException::UNPROCESSABLE);
             }
-            if (!$hmacRaw) throw new SecurePayloadException('HMAC secret missing', SecurePayloadException::SERVER_ERROR);
 
-            $msg    = self::hmacMessage($this->version, $cid, $kid, $tsStr, $nonceB64, $method, $path, $qStr, $calcDig);
-            $sigB64 = base64_encode(hash_hmac('sha256', $msg, (string)$hmacRaw, true));
+            if (!$hmacRaw) {
+                throw new SecurePayloadException('Secret Key HMAC tidak ditemukan di server', SecurePayloadException::SERVER_ERROR);
+            }
+
+            // 2. Verifikasi Signature
+            $msg = self::hmacMessage($this->version, $cid, $kid, $tsStr, $nonceB64, $method, $path, $qStr, $calcDig);
+            $sigB64 = base64_encode(hash_hmac('sha256', $msg, (string) $hmacRaw, true));
 
             if (!hash_equals($sigB64, $sigIn)) {
-                throw new SecurePayloadException('Signature mismatch', SecurePayloadException::UNAUTHORIZED);
+                throw new SecurePayloadException('Tanda Tangan (Signature) tidak valid', SecurePayloadException::UNAUTHORIZED);
             }
 
             $result['mode'] = ($this->mode === 'both' and isset($rawBodyForHmac)) ? 'BOTH' : 'HMAC';
@@ -435,138 +535,206 @@ $ctB64      = base64_encode($ciphertext);
             return $result;
         }
 
-        throw new SecurePayloadException('No valid security headers', SecurePayloadException::BAD_REQUEST);
+        throw new SecurePayloadException('Tidak ditemukan header keamanan yang valid', SecurePayloadException::BAD_REQUEST);
     }
 
     /**
-     * Server-side (simple): cukup berikan headers + rawBody.
-     * Method/Path/Query diambil dari header X-Canonical-Request (dibuat client).
+     * Helper Verifikasi Sederhana (Deprecated Behavior Fixed).
+     * 
+     * PERINGATAN: Fungsi ini telah diperbarui untuk keamanan. 
+     * Versi sebelumnya membaca Method dan Path dari header, yang tidak aman.
+     * Sekarang Anda WAJIB menyediakannya secara eksplisit.
+     *
      * @param array<string,string> $headers
      * @param string $rawBody
+     * @param string $method
+     * @param string $path
+     * 
      * @return array{ok:bool, status?:int, error?:string, debug?:array<string,mixed>, mode?:string, bodyPlain?:string, json:mixed}
      */
-    public function verifySimple(array $headers, string $rawBody): array
+    public function verifySimple(array $headers, string $rawBody, string $method, string $path): array
     {
-        try {
-            $data = $this->verifySimpleOrThrow($headers, $rawBody);
-            return ['ok'=>true] + $data;
-        } catch (\SecurePayload\Exceptions\SecurePayloadException $e) {
-            return [
-                'ok' => false,
-                'status' => $e->getCode() ?: \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST,
-                'error' => $e->getMessage(),
-                'debug' => $e->getContext(),
-                'mode' => "",
-                'bodyPlain' => "",
-                'json'  => null,
-            ];
-        }
+        return $this->verify($headers, $rawBody, $method, $path, []);
     }
 
-    /**
-     * Server-side (simple): lempar exception jika invalid.
-     * Method/Path/Query dibaca dari header X-Canonical-Request.
-     * @param array<string,string> $headers
-     * @param string $rawBody
-     * @return array{mode:string, bodyPlain:string|null, json:mixed}
-     * @throws \SecurePayload\Exceptions\SecurePayloadException
-     */
-    public function verifySimpleOrThrow(array $headers, string $rawBody): array
+    // --- Private & Internal Helpers ---
+
+    private function checkReplay(string $cid, string $kid, string $tsStr, string $nonceB64): void
     {
-        // Normalisasi header jadi UPPER-KEY => value
-        $H = [];
-        foreach ($headers as $k => $v) {
-            if (!is_string($k)) { continue; }
-            $H[strtoupper($k)] = (string)$v;
+        $cacheKey = 'sp_' . substr(hash('sha256', "$cid|$kid|$tsStr|$nonceB64"), 0, 48);
+
+        if ($this->replayStore) {
+            $okNew = (bool) call_user_func($this->replayStore, $cacheKey, $this->replayTtl);
+            if (!$okNew) {
+                throw new SecurePayloadException('Replay detected (Store)', SecurePayloadException::UNAUTHORIZED);
+            }
+            return;
         }
 
-        $canon = $H[self::upper(self::HX_CANON_REQ)] ?? '';
-        if ($canon === '') {
-            throw new \SecurePayload\Exceptions\SecurePayloadException(
-                'Missing ' . self::HX_CANON_REQ . ' header; gunakan verify() lama dengan method/path/query atau aktifkan header kanonik di client.',
-                \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST
-            );
-        }
+        // Fallback file-based replay protection (dengan locking untuk mencegah race condition)
+        $dir = sys_get_temp_dir();
+        $f = $dir . DIRECTORY_SEPARATOR . $cacheKey;
 
-        if (strpos($canon, "\n") === false) {
-            $decoded = base64_decode($canon, true);
-            if (is_string($decoded)) {
-                $canon = $decoded;
+        // Kita menggunakan file sebagai flag. Jika file ada dan umur < TTL, maka replay.
+        // Race condition mitigation: Gunakan 'x' (create only) atau lock.
+
+        // Strategi Sederhana dengan @touch + filemtime check
+        // Perhatian: Ini tidak atomic sempurna di semua OS tanpa lock, tapi cukup untuk case moderat.
+        // Untuk produksi high-concurrency, WAJIB gunakan Redis/Memcached via $replayStore.
+
+        if (file_exists($f)) {
+            $age = time() - (int) @filemtime($f);
+            if ($age < $this->replayTtl) {
+                throw new SecurePayloadException('Replay detected (File)', SecurePayloadException::UNAUTHORIZED, ['age' => $age]);
             }
         }
 
-        $parts = explode("\n", $canon, 3);
-        if (count($parts) !== 3) {
-            throw new \SecurePayload\Exceptions\SecurePayloadException(
-                'Bad canonical request header format',
-                \SecurePayload\Exceptions\SecurePayloadException::BAD_REQUEST
-            );
-        }
-        [$method, $path, $qStr] = $parts;
+        // Update timestamp file (atau buat baru)
+        // Menggunakan flock untuk memastikan tidak ada dua proses menulis bersamaan
+        $fp = fopen($f, 'c+'); // c+ tidak truncate, open buat read/write
+        if ($fp) {
+            if (flock($fp, LOCK_EX)) { // Exclusive Lock
+                // Cek lagi setelah lock didapat (double-checked locking)
+                $stat = fstat($fp);
+                $age = time() - $stat['mtime'];
+                // Jika file sudah ada isinya/ukurannya 0 tapi mtime baru saja, reject? 
+                // Di sini kita asumsikan keberadaan file + mtime baru = key sudah terpakai
 
-        // Teruskan ke jalur verifikasi penuh yang sudah ada
-        return $this->verifyOrThrow($headers, $rawBody, strtoupper($method), self::normalizePath($path), $qStr);
+                // Jika baru saja disentuh oleh proses lain dalam durasi TTL
+                if ($stat['size'] > 0 && $age < $this->replayTtl) {
+                    flock($fp, LOCK_UN);
+                    fclose($fp);
+                    throw new SecurePayloadException('Replay detected (Locked)', SecurePayloadException::UNAUTHORIZED);
+                }
+
+                // Tandai terpakai
+                ftruncate($fp, 0);
+                fwrite($fp, "1"); // Tulis byte agar size > 0
+                fflush($fp);
+                flock($fp, LOCK_UN);
+            }
+            fclose($fp);
+        } else {
+            // Fallback jika gagal open file
+            @touch($f);
+        }
     }
 
-    private static function upper(string $s): string { return strtoupper($s); }
-    /** Normalisasi path URL: selalu diawali '/', dan tidak berakhiran '/' (kecuali root '/'). */
+    private function getAeadKeyRaw(): string
+    {
+        $aeadKeyRaw = base64_decode($this->aeadKeyB64 ?? '', true);
+        if (!is_string($aeadKeyRaw) || strlen($aeadKeyRaw) !== 32) {
+            throw new SecurePayloadException('Kunci AEAD tidak valid (harus 32 byte base64)', SecurePayloadException::BAD_REQUEST);
+        }
+        return $aeadKeyRaw;
+    }
+
+    private function ensureSodium(): void
+    {
+        if (!extension_loaded('sodium')) {
+            throw new SecurePayloadException('Ekstensi sodium diperlukan untuk mode AEAD/BOTH', SecurePayloadException::SERVER_ERROR);
+        }
+    }
+
+    private static function upper(string $s): string
+    {
+        return strtoupper($s);
+    }
+
+    /**
+     * Normalisasi path URL.
+     * Pastikan selalu diawali '/' dan tidak diakhiri '/' (kecuali root).
+     */
     public static function normalizePath(string $path): string
     {
-        if ($path === '') return '/';
-        if ($path[0] !== '/') $path = '/'.$path;
-        if (strlen($path) > 1) $path = rtrim($path, '/');
+        if ($path === '')
+            return '/';
+        $path = '/' . ltrim($path, '/');
+        if (strlen($path) > 1) {
+            $path = rtrim($path, '/');
+        }
         return $path;
     }
+
     /**
-     * Canonicalisasi query (key sort ASC + urlencode) -> string 'a=1&b=2'.
+     * Canonicalisasi Query String.
+     * Urutkan key secara ASC, lalu bangun string query ter-encode.
      * @param array<string,mixed> $q
      */
     public static function canonicalQuery(array $q): string
     {
-        if (!$q) return '';
-        $out = [];
+        if (!$q)
+            return '';
         ksort($q, SORT_STRING);
+        $out = [];
         foreach ($q as $k => $v) {
-            if (is_array($v)) $v = implode(',', array_map('strval', $v));
-            else $v = (string) $v;
-            $out[] = rawurlencode((string)$k).'='.rawurlencode($v);
+            if (is_array($v)) {
+                // Konvensi: array digabung koma atau abaikan nested kompleks
+                $v = implode(',', array_map('strval', $v));
+            } else {
+                $v = (string) $v;
+            }
+            $out[] = rawurlencode((string) $k) . '=' . rawurlencode($v);
         }
         return implode('&', $out);
     }
-    /** Generate nonce acak (16 byte) lalu encode base64. */
-    public static function genNonceB64(): string { return base64_encode(random_bytes(16)); }
-    /** Hitung SHA-256 digest dari body string dan kembalikan base64-nya. */
-    public static function bodyDigestB64(string $body): string { return base64_encode(hash('sha256', $body, true)); }
-    private function aeadAAD(string $version): string { return 'v'.$version; }
+
+    /** Generate nonce acak 16 byte (Base64). */
+    public static function genNonceB64(): string
+    {
+        return base64_encode(random_bytes(16));
+    }
+
+    /** Hitung SHA-256 digest dari string body. */
+    public static function bodyDigestB64(string $body): string
+    {
+        return base64_encode(hash('sha256', $body, true));
+    }
+
+    private function aeadAAD(string $version): string
+    {
+        return 'v' . $version;
+    }
+
     /**
-     * Turunkan AEAD nonce dari kombinasi (method, path, query, seedNonce) agar terikat ke request.
-     * @return string Raw nonce 24 byte
+     * Turunkan AEAD Nonce 24-byte (XChaCha20) yang terikat dengan request context.
+     * Mencegah nonce reuse dan memvalidasi binding parameter.
      */
     public static function aeadNonceFrom(string $nonceB64, string $method, string $path, string $qStr): string
     {
-        $seed = base64_decode($nonceB64, true) ?: random_bytes(16);
-        $msg = implode("\n", [strtoupper($method), self::normalizePath($path), (string)$qStr, $seed]);
+        // Seed diambil dari random nonce client
+        $seed = base64_decode($nonceB64, true) ?: str_repeat("\0", 16);
+
+        // Campur dengan data request
+        $msg = implode("\n", [strtoupper($method), self::normalizePath($path), (string) $qStr, $seed]);
+
+        // Hash jadi 32 byte -> potong sesuai kebutuhan algoritma (biasanya 24 byte untuk XChaCha20)
         $h = hash('sha256', $msg, true);
-        $len = defined('SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES') ? (int)SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES : 24;
+
+        $len = defined('SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES')
+            ? (int) SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES
+            : 24;
+
         return substr($h, 0, $len);
     }
+
     /**
-     * Buat canonical message untuk HMAC agar stabil & mudah diverifikasi.
-     * Lihat README untuk format detail tiap baris.
+     * Buat Pesan Kanonik untuk HMAC.
+     * Struktur string yang akan ditandatangani. Harus konsisten di Client & Server.
      */
     public static function hmacMessage(string $ver, string $clientId, string $keyId, string $ts, string $nonceB64, string $method, string $path, string $qStr, string $bodyDigestB64): string
     {
         return implode("\n", [
-            'v'.$ver,
-            'client='.$clientId,
-            'key='.$keyId,
-            'ts='.$ts,
-            'nonce='.$nonceB64,
-            'm='.$method,
-            'p='.$path,
-            'q='.$qStr,
-            'bd=sha256:'.$bodyDigestB64,
-            '',
+            'v' . $ver,
+            'client=' . $clientId,
+            'key=' . $keyId,
+            'ts=' . $ts,
+            'nonce=' . $nonceB64,
+            'm=' . $method,
+            'p=' . $path,
+            'q=' . $qStr,
+            'bd=sha256:' . $bodyDigestB64,
+            '', // Trailing newline
         ]);
     }
 }
