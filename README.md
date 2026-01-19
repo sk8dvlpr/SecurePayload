@@ -20,6 +20,7 @@
     -   `AEAD`: Integritas + Kerahasiaan (Enkripsi penuh).
     -   `BOTH`: Kombinasi keduanya untuk keamanan maksimal.
 -   **Anti-Replay Attack**: Proteksi otomatis menggunakan Timestamp dan Nonce Cache.
+-   **Secure File Transfer**: Kirim file dengan aman (terenkripsi & tertanda-tangan) termasuk validasi ketat (MIME-Type & Extension).
 -   **Zero Configuration**: Verifikasi cerdas yang mendeteksi algoritma secara otomatis.
 -   **Key Management System (KMS)**: Dukungan bawaan untuk rotasi kunci dan enkripsi kunci database (Key Wrapping).
 -   **Framework Agnostic**: Siap pakai untuk Laravel, CodeIgniter 4, Symfony, Slim, Lumen, dan Native PHP.

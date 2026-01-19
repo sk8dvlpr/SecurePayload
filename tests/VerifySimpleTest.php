@@ -34,29 +34,29 @@ final class VerifySimpleTest extends TestCase
     public function testHmacVerifySimple(): void
     {
         $spClient = new SecurePayload([
-            'mode'         => 'hmac',
-            'version'      => '1',
-            'clientId'     => 'c1',
-            'keyId'        => 'k1',
-            'hmacSecretRaw'=> 'secret',
+            'mode' => 'hmac',
+            'version' => '1',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'hmacSecretRaw' => 'secret',
         ]);
 
-        [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/api/foo?x=1', 'POST', ['a'=>1]);
+        [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/api/foo', 'POST', ['a' => 1]);
 
-        $keyLoader = function(string $cid, string $kid): array {
-            return ['hmacSecret'=>'secret', 'aeadKeyB64'=>null];
+        $keyLoader = function (string $cid, string $kid): array {
+            return ['hmacSecret' => 'secret', 'aeadKeyB64' => null];
         };
 
         $spServer = new SecurePayload([
-            'mode'      => 'hmac',
-            'version'   => '1',
+            'mode' => 'hmac',
+            'version' => '1',
             'keyLoader' => $keyLoader,
         ]);
 
-        $vr = $spServer->verifySimple($headers, $body);
+        $vr = $spServer->verifySimple($headers, $body, 'POST', '/api/foo');
         $this->assertTrue($vr['ok'] ?? false, json_encode($vr));
         $this->assertSame('HMAC', $vr['mode'] ?? null);
-        $this->assertSame(['a'=>1], $vr['json'] ?? null);
+        $this->assertSame(['a' => 1], $vr['json'] ?? null);
     }
 
     public function testBothVerifySimple(): void
@@ -68,30 +68,30 @@ final class VerifySimpleTest extends TestCase
         $aeadKey = base64_encode(random_bytes(32));
 
         $spClient = new SecurePayload([
-            'mode'         => 'both',
-            'version'      => '1',
-            'clientId'     => 'c1',
-            'keyId'        => 'k1',
-            'hmacSecretRaw'=> 'secret',
-            'aeadKeyB64'   => $aeadKey,
+            'mode' => 'both',
+            'version' => '1',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'hmacSecretRaw' => 'secret',
+            'aeadKeyB64' => $aeadKey,
         ]);
 
-        [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/v1/bar?u=42', 'PUT', ['x'=>'y']);
+        [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/v1/bar', 'PUT', ['x' => 'y']);
 
-        $keyLoader = function(string $cid, string $kid) use ($aeadKey): array {
-            return ['hmacSecret'=>'secret', 'aeadKeyB64'=>$aeadKey];
+        $keyLoader = function (string $cid, string $kid) use ($aeadKey): array {
+            return ['hmacSecret' => 'secret', 'aeadKeyB64' => $aeadKey];
         };
 
         $spServer = new SecurePayload([
-            'mode'      => 'both',
-            'version'   => '1',
+            'mode' => 'both',
+            'version' => '1',
             'keyLoader' => $keyLoader,
         ]);
 
-        $vr = $spServer->verifySimple($headers, $body);
+        $vr = $spServer->verifySimple($headers, $body, 'PUT', '/v1/bar');
         $this->assertTrue($vr['ok'] ?? false, json_encode($vr));
         $this->assertSame('BOTH', $vr['mode'] ?? null);
-        $this->assertSame(['x'=>'y'], $vr['json'] ?? null);
+        $this->assertSame(['x' => 'y'], $vr['json'] ?? null);
     }
 
     public function testAeadVerifySimple(): void
@@ -103,43 +103,43 @@ final class VerifySimpleTest extends TestCase
         $aeadKey = base64_encode(random_bytes(32));
 
         $spClient = new SecurePayload([
-            'mode'         => 'aead',
-            'version'      => '1',
-            'clientId'     => 'c1',
-            'keyId'        => 'k1',
-            'aeadKeyB64'   => $aeadKey,
+            'mode' => 'aead',
+            'version' => '1',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'aeadKeyB64' => $aeadKey,
         ]);
 
-        [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/aead?arr=1&arr=2', 'PATCH', ['z'=>3]);
+        [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/aead', 'PATCH', ['z' => 3]);
 
-        $keyLoader = function(string $cid, string $kid) use ($aeadKey): array {
-            return ['hmacSecret'=>null, 'aeadKeyB64'=>$aeadKey];
+        $keyLoader = function (string $cid, string $kid) use ($aeadKey): array {
+            return ['hmacSecret' => null, 'aeadKeyB64' => $aeadKey];
         };
 
         $spServer = new SecurePayload([
-            'mode'      => 'aead',
-            'version'   => '1',
+            'mode' => 'aead',
+            'version' => '1',
             'keyLoader' => $keyLoader,
         ]);
 
-        $vr = $spServer->verifySimple($headers, $body);
+        $vr = $spServer->verifySimple($headers, $body, 'PATCH', '/aead');
         $this->assertTrue($vr['ok'] ?? false, json_encode($vr));
         $this->assertSame('AEAD', $vr['mode'] ?? null);
-        $this->assertSame(['z'=>3], $vr['json'] ?? null);
+        $this->assertSame(['z' => 3], $vr['json'] ?? null);
     }
 
     public function testVerifySimpleMissingCanonicalHeader(): void
     {
         $sp = new SecurePayload([
-            'mode'      => 'hmac',
-            'version'   => '1',
-            'keyLoader' => fn(string $c, string $k) => ['hmacSecret'=>'secret','aeadKeyB64'=>null],
+            'mode' => 'hmac',
+            'version' => '1',
+            'keyLoader' => fn(string $c, string $k) => ['hmacSecret' => 'secret', 'aeadKeyB64' => null],
         ]);
 
         $headers = []; // sengaja kosong
-        $res = $sp->verifySimple($headers, '{}');
+        $res = $sp->verifySimple($headers, '{}', 'GET', '/');
         $this->assertFalse($res['ok'] ?? true);
         $this->assertSame(400, $res['status'] ?? 0);
-        $this->assertStringContainsString('X-Canonical-Request', $res['error'] ?? '');
+        $this->assertStringContainsString('Header keamanan tidak lengkap', $res['error'] ?? '');
     }
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0] - 2026-01-20
+### Added
+- **File Upload Support**: Added secure file transfer capabilities.
+  - `buildFilePayload($url, $method, $filePath, [$data])`: Create payload with Base64 encoded file.
+  - `sendFile(...)`: Wrapper to send file securely in one line.
+  - `verifyFilePayload(...)`: Server-side verification including size limit, extension checking, and **Strict MIME-Type Sniffing** to prevent extension spoofing.
+- **Enhanced Payload**: The library now supports encapsulating file attachments within the secure JSON payload.
+
 ## [1.2.0] - 2026-01-20
 ### Security
 - **[CRITICAL]** Fixed signature spoofing vulnerability in `verifySimple()`. The method now REQUIRES `$method` and `$path` parameters to be passed explicitly from the server's context, instead of trusting the `X-Canonical-Request` header.

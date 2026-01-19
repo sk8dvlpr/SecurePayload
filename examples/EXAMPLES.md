@@ -85,6 +85,22 @@ Untuk proyek legacy atau skrip sederhana tanpa framework.
 
 ---
 
+## 7. File Upload
+
+Fitur baru di v1.3.0 untuk mengirim file secara aman (Encrypted + Signed).
+
+*   **Penerima (Receiver)**: Menggunakan method `verifyFilePayload()` untuk memvalidasi ukuran, ekstensi (termasuk deteksi MIME spoofing), dan integritas file.
+*   **Pengirim (Sender)**: Menggunakan helper `sendFile()` untuk kemudahan pengiriman.
+*   **Contoh File**:
+    *   **Native**: `examples/native/upload_sender.php` & `examples/native/upload_receiver.php`
+    *   **CI4**: `examples/ci4/UploadController.php`
+    *   **Laravel**: `examples/laravel/UploadController.php`
+    *   **Lumen**: `examples/lumen/UploadController.php`
+    *   **Slim**: `examples/slim/upload_routes.php`
+    *   **Symfony**: `examples/symfony/UploadController.php`
+
+---
+
 ## Catatan Keamanan (Penting)
 
 1.  **Mode Operasi**: Sebagian besar contoh menggunakan mode `'both'` (Signature + Encryption) karena ini yang paling aman. Pastikan kedua belah pihak (Client & Server) memiliki konfigurasi mode yang sama.

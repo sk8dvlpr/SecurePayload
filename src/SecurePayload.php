@@ -318,6 +318,124 @@ final class SecurePayload
     }
 
     /**
+     * Membangun Payload Aman yang Berisi Lampiran File (Client-Side).
+     *
+     * Fungsi ini mempermudah proses pembuatan body request yang menyertakan file.
+     * File akan dibaca, dikonversi ke format Base64 standard, lalu digabungkan dengan data JSON lainnya
+     * ke dalam struktur payload internal `_attachment`.
+     *
+     * Hasil dari fungsi ini adalah array headers dan string body yang siap dikirim,
+     * yang mana body tersebut sudah dienkripsi (AEAD) atau ditandatangani (HMAC) sesuai mode.
+     *
+     * @param string $url            URL lengkap tujuan request, digunakan untuk perhitungan signature.
+     * @param string $method         HTTP Method (GET, POST, PUT, dll).
+     * @param string $filePath       Lokasi absolut atau relatif file fisik yang akan dikirim.
+     * @param array  $data           (Opsional) Data tambahan dalam bentuk key-value array yang ingin disertakan bersama file.
+     *                               Contoh: ['user_id' => 123, 'keterangan' => 'Foto Profil'].
+     * @param string|null $customFileName (Opsional) Nama kustom untuk file tersebut saat diterima server.
+     *                                    Jika null, akan menggunakan nama asli dari file fisik.
+     *
+     * @return array{0: array<string,string>, 1: string} 
+     *         Mengembalikan array tuple:
+     *         - Index 0: Array Headers keamanan (X-Signature, X-Nonce, dll).
+     *         - Index 1: String Body request siap kirim (JSON/Encrypted String).
+     *
+     * @throws SecurePayloadException Jika file tidak ditemukan atau tidak dapat dibaca.
+     */
+    public function buildFilePayload(string $url, string $method, string $filePath, array $data = [], ?string $customFileName = null): array
+    {
+        if (!file_exists($filePath) || !is_readable($filePath)) {
+            throw new SecurePayloadException("File tidak ditemukan atau tidak terbaca: $filePath", SecurePayloadException::BAD_REQUEST);
+        }
+
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            throw new SecurePayloadException("Gagal membaca file: $filePath", SecurePayloadException::BAD_REQUEST);
+        }
+
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->buffer($content) ?: 'application/octet-stream';
+        $name = $customFileName ?: basename($filePath);
+        $size = strlen($content);
+
+        // Gabungkan data body dengan metadata file
+        // Struktur: { ...data, _attachment: { name, size, type, content_b64 } }
+        $payload = $data;
+        $payload['_attachment'] = [
+            'name' => $name,
+            'size' => $size,
+            'type' => $mime,
+            'content' => base64_encode($content)
+        ];
+
+        return $this->buildHeadersAndBody($url, $method, $payload);
+    }
+
+    /**
+     * Mengirim File secara Aman (Client-Side).
+     * 
+     * Wrapper praktis untuk mengirim file. Data body opsional.
+     * 
+     * @param string $url URL Tujuan
+     * @param string $method HTTP Method
+     * @param string $filePath Path file
+     * @param array  $data (Opsional) Data body tambahan
+     * @param string|null $customFileName (Opsional) Nama file
+     * @param array  $extraHeaders (Opsional) Header tambahan curl
+     * 
+     * @return array{status:int, headers:array<string,string>, body:mixed, error:?string}
+     */
+    public function sendFile(string $url, string $method, string $filePath, array $data = [], ?string $customFileName = null, array $extraHeaders = []): array
+    {
+        // 1. Build Payload khusus file
+        [$headers, $body] = $this->buildFilePayload($url, $method, $filePath, $data, $customFileName);
+
+        // 2. Reuse logika curl dari send() manual
+
+        if (!extension_loaded('curl')) {
+            throw new SecurePayloadException('Ekstensi cURL diperlukan', SecurePayloadException::SERVER_ERROR);
+        }
+
+        $outHeaders = [];
+        foreach (array_merge($headers, $extraHeaders) as $k => $v) {
+            $outHeaders[] = $k . ': ' . $v;
+        }
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge($outHeaders, ['Content-Type: application/json']));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, true);
+
+        $resp = curl_exec($ch);
+        $err = $resp === false ? curl_error($ch) : null;
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+
+        $rawHeaders = substr((string) $resp, 0, $headerSize);
+        $bodyStr = substr((string) $resp, $headerSize);
+        curl_close($ch);
+
+        $respHeaders = [];
+        foreach (preg_split("/\\r?\\n/", $rawHeaders) as $line) {
+            if (strpos($line, ':') !== false) {
+                [$hk, $hv] = array_map('trim', explode(':', $line, 2));
+                if ($hk !== '')
+                    $respHeaders[$hk] = $hv;
+            }
+        }
+
+        $json = json_decode($bodyStr, true);
+        return [
+            'status' => $code,
+            'headers' => $respHeaders,
+            'body' => $json !== null ? $json : $bodyStr,
+            'error' => $err,
+        ];
+    }
+
+    /**
      * Verifikasi Request (Server-Side) - Aman, tanpa Exception.
      * 
      * Membungkus `verifyOrThrow` dalam try-catch untuk kemudahan penggunaan.
@@ -555,6 +673,241 @@ final class SecurePayload
     public function verifySimple(array $headers, string $rawBody, string $method, string $path): array
     {
         return $this->verify($headers, $rawBody, $method, $path, []);
+    }
+
+    /**
+     * Verifikasi Payload File di Sisi Server.
+     *
+     * Fungsi ini adalah wrapper lengkap untuk memvalidasi request yang mengandung file.
+     * Melakukan urutan verifikasi sebagai berikut:
+     * 1. Verifikasi Signature/Enkripsi menggunakan `verifySimple` (HMAC/AEAD).
+     * 2. Pengecekan keberadaan lampiran file dalam payload.
+     * 3. Validasi ukuran file (`max_size`).
+     * 4. Validasi ekstensi file (`allowed_exts` & `block_dangerous`).
+     * 5. Validasi keamanan konten mendalam (`strict_mime`) untuk mencegah spoofing
+     *    (misal: file .php yang di-rename menjadi .jpg).
+     *
+     * @param array  $headers   Array header dari request (gunakan `getallheaders()`).
+     * @param string $rawBody   String body mentah dari request (gunakan `file_get_contents('php://input')`).
+     * @param string $method    HTTP Method yang diterima server.
+     * @param string $path      URL Path yang diterima server.
+     * @param array  $constraints {
+     *     Opsi konfigurasi pembatasan file:
+     *     @type int $max_size
+     *          Batas maksimum ukuran file dalam byte. Default: 5242880 (5MB).
+     *          
+     *     @type string[] $allowed_exts
+     *          Daftar ekstensi yang DIZINKAN (Whitelist). 
+     *          Jika diisi, hanya file dengan ekstensi ini yang diterima.
+     *          Contoh: ['jpg', 'png', 'pdf']. Default: [] (Semua diizinkan kecuali yang berbahaya).
+     *          
+     *     @type bool|string[] $block_dangerous
+     *          Konfigurasi pemblokiran ekstensi berbahaya (Blacklist).
+     *          - `true` (Default): Memblokir ekstensi berbahaya standar (php, exe, sh, dll).
+     *          - `false`: MENONAKTIFKAN proteksi blacklist (Sangat tidak disarankan).
+     *          - `array`: Menambahkan ekstensi kustom ke daftar blokir standar.
+     *            Contoh: ['xyz', 'bat'] akan memblokir .xyz, .bat, DAN .php, .exe, dll.
+     *            
+     *     @type bool $strict_mime
+     *          Mengaktifkan pengecekan Mime-Type ketat (Deep Scan).
+     *          Jika `true` (Default), library akan membaca magic bytes file asli untuk memastikan
+     *          kontennya sesuai dengan ekstensinya (Anti-Spoofing).
+     * }
+     *
+     * @return array{
+     *   ok: bool,
+     *   file: ?array{name:string, size:int, type:string, content_b64:string, content_decoded:string},
+     *   data: mixed,
+     *   error?: string,
+     *   status?: int
+     * }
+     * Mengembalikan array hasil. Jika `ok` = true, file dapat diakses di key `file`.
+     */
+    public function verifyFilePayload(array $headers, string $rawBody, string $method, string $path, array $constraints = []): array
+    {
+        // 1. Verifikasi Keamanan Dasar (Signature/Encryption)
+        $res = $this->verifySimple($headers, $rawBody, $method, $path);
+        if (($res['ok'] ?? false) === false) {
+            return $res + ['file' => null, 'data' => null];
+        }
+
+        $json = $res['json'];
+        $attachment = $json['_attachment'] ?? null;
+        $data = $json;
+        unset($data['_attachment']); // Pisahkan data bersih dari attachment
+
+        if (!$attachment || !is_array($attachment)) {
+            return [
+                'ok' => false,
+                'status' => 400,
+                'error' => 'Tidak ada lampiran file dalam payload',
+                'file' => null,
+                'data' => $data
+            ];
+        }
+
+        // 2. Validasi Metadata File
+        $name = $attachment['name'] ?? 'unknown';
+        $size = (int) ($attachment['size'] ?? 0);
+        $contentB64 = $attachment['content'] ?? '';
+
+        // Constraint Defaults
+        $maxSize = $constraints['max_size'] ?? 5 * 1024 * 1024; // 5MB
+        $allowedExts = $constraints['allowed_exts'] ?? [];
+        $blockVal = $constraints['block_dangerous'] ?? true;
+
+        $dangerousExts = ['php', 'php5', 'phtml', 'exe', 'dll', 'sh', 'bat', 'cmd', 'js', 'vbs', 'python', 'pl', 'cgi'];
+
+        // Logic `block_dangerous`:
+        // - true: Blokir default list.
+        // - false: Jangan blokir apa-apa (danger!).
+        // - array: Blokir default + array input user (merged).
+
+        $shouldBlock = false;
+
+        if (is_array($blockVal)) {
+            $dangerousExts = array_merge($dangerousExts, $blockVal);
+            $shouldBlock = true;
+        } elseif ($blockVal === true) {
+            $shouldBlock = true;
+        }
+
+        // Normalisasi semua ke lowercase untuk case-insensitive check
+        $dangerousExts = array_map('strtolower', $dangerousExts);
+
+        // Cek Ukuran
+        if ($size > $maxSize) {
+            return [
+                'ok' => false,
+                'status' => 413, // Payload Too Large
+                'error' => "Ukuran file ($size bytes) melebihi batas ($maxSize bytes)",
+                'file' => null,
+                'data' => $data
+            ];
+        }
+
+        // Cek Ekstensi
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+        if ($shouldBlock && in_array($ext, $dangerousExts)) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'error' => "Ekstensi file berbahaya dideteksi (.$ext)",
+                'file' => null,
+                'data' => $data
+            ];
+        }
+
+        if (!empty($allowedExts) && !in_array($ext, array_map('strtolower', $allowedExts))) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'error' => "Ekstensi file tidak diizinkan (.$ext)",
+                'file' => null,
+                'data' => $data
+            ];
+        }
+
+        // 3. Decode Content
+        $decoded = base64_decode($contentB64, true);
+        if ($decoded === false) {
+            return [
+                'ok' => false,
+                'status' => 400,
+                'error' => "Gagal decode konten file",
+                'file' => null,
+                'data' => $data
+            ];
+        }
+
+        // Double Check Size Integrity
+        if (strlen($decoded) !== $size) {
+            return [
+                'ok' => false,
+                'status' => 400,
+                'error' => "Integritas ukuran file tidak valid",
+                'file' => null,
+                'data' => $data
+            ];
+        }
+
+        // 4. [NEW] Strict MIME Type & Security Verification (Deep Scan)
+        // Gunakan buffer sniffing untuk mengetahui konten asli file
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $realMime = $finfo->buffer($decoded) ?: 'application/octet-stream';
+
+        // A. Cek Konsistensi Extension vs MIME
+        // Library ini membawa map built-in untuk common types yang AMAN.
+        // Jika extension ada di map, MIME-nya WAJIB cocok.
+        // Jika tidak ada di map, kita peringatkan atau blokir jika strict mode.
+
+        $strict = $constraints['strict_mime'] ?? true; // Default TRUE for full security
+
+        if ($strict) {
+            $mimeMap = [
+                'jpg' => ['image/jpeg', 'image/pjpeg'],
+                'jpeg' => ['image/jpeg', 'image/pjpeg'],
+                'png' => ['image/png'],
+                'gif' => ['image/gif'],
+                'webp' => ['image/webp'],
+                'pdf' => ['application/pdf'],
+                'txt' => ['text/plain'],
+                'json' => ['application/json', 'text/plain'],
+                'zip' => ['application/zip'],
+                'doc' => ['application/msword'],
+                'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+                'xls' => ['application/vnd.ms-excel'],
+                'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+                // Tambahkan lainnya sesuai kebutuhan
+            ];
+
+            if (isset($mimeMap[$ext])) {
+                if (!in_array($realMime, $mimeMap[$ext])) {
+                    return [
+                        'ok' => false,
+                        'status' => 422,
+                        'error' => "Security Alert: Isi file terdeteksi sebagai '$realMime' namun ekstensi adalah '.$ext'. (Spoofing Detected)",
+                        'file' => null,
+                        'data' => $data
+                    ];
+                }
+            }
+
+            // B. Block Dangerous MIME Types (Double Cover)
+            // Walaupun ekstensi lolos (misal .txt), jika isinya executables/scripting, tolak.
+            $dangerousMimes = [
+                'application/x-dosexec', // exe, dll
+                'application/x-executable', // elf
+                'text/x-php',
+                'application/x-php',
+                'application/x-httpd-php',
+                'text/x-shellscript'
+            ];
+
+            if (in_array($realMime, $dangerousMimes)) {
+                return [
+                    'ok' => false,
+                    'status' => 422,
+                    'error' => "Security Alert: Konten file terdeteksi berbahaya ($realMime)",
+                    'file' => null,
+                    'data' => $data
+                ];
+            }
+        }
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'file' => [
+                'name' => $name,
+                'size' => $size,
+                'type' => $attachment['type'] ?? 'application/octet-stream',
+                'content_b64' => $contentB64,
+                'content_decoded' => $decoded
+            ],
+            'data' => $data
+        ];
     }
 
     // --- Private & Internal Helpers ---
