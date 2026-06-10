@@ -44,3 +44,10 @@
 /*.iml
 .DS_Store
 Thumbs.db
+
+# --- Coverage XML ---
+/coverage-xml/
+
+# --- AGENTS ---
+.skills/
+.prompts/

@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php" colors="true">
+<phpunit
+    bootstrap="vendor/autoload.php"
+    colors="true"
+    stopOnFailure="false"
+    failOnWarning="false"
+>
   <testsuites>
-    <testsuite name="SecurePayload Test Suite">
-      <directory>tests</directory>
+    <testsuite name="Unit">
+      <directory>tests/Unit</directory>
+    </testsuite>
+    <testsuite name="Integration">
+      <directory>tests/Integration</directory>
+    </testsuite>
+    <testsuite name="Security">
+      <directory>tests/Security</directory>
     </testsuite>
   </testsuites>
   <coverage processUncoveredFiles="true">
     <include>
-      <directory>src</directory>
+      <directory suffix=".php">src</directory>
     </include>
   </coverage>
 </phpunit>

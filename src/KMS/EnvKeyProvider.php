@@ -13,11 +13,6 @@ final class EnvKeyProvider implements SecureKeyProvider
         $hmac = getenv("SECUREPAYLOAD_{$cid}_{$kid}_HMAC_SECRET");
         $aead = getenv("SECUREPAYLOAD_{$cid}_{$kid}_AEAD_KEY_B64");
 
-        if (!$hmac && !$aead) {
-            $hmac = getenv("SECURE_HMAC_SECRET") ?: null;
-            $aead = getenv("SECURE_AEAD_KEY_B64") ?: null;
-        }
-
         return [
             'hmacSecret' => $hmac !== false && $hmac !== '' ? (string)$hmac : null,
             'aeadKeyB64' => $aead !== false && $aead !== '' ? (string)$aead : null,

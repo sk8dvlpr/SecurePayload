@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace SecurePayload\Tests;
+namespace SecurePayload\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use SecurePayload\SecurePayload;
@@ -11,6 +11,9 @@ use SecurePayload\SecurePayload;
  */
 final class VerifySimpleTest extends TestCase
 {
+    // Konstanta standar — 36 karakter, aman untuk semua test
+    private const HMAC_32 = 'test-hmac-secret-must-be-32bytes!!';
+
 
     /**
      * Decode X-Canonical-Request from header.
@@ -38,13 +41,13 @@ final class VerifySimpleTest extends TestCase
             'version' => '1',
             'clientId' => 'c1',
             'keyId' => 'k1',
-            'hmacSecretRaw' => 'secret',
+            'hmacSecretRaw' => self::HMAC_32,
         ]);
 
         [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/api/foo', 'POST', ['a' => 1]);
 
         $keyLoader = function (string $cid, string $kid): array {
-            return ['hmacSecret' => 'secret', 'aeadKeyB64' => null];
+            return ['hmacSecret' => self::HMAC_32, 'aeadKeyB64' => null];
         };
 
         $spServer = new SecurePayload([
@@ -72,14 +75,14 @@ final class VerifySimpleTest extends TestCase
             'version' => '1',
             'clientId' => 'c1',
             'keyId' => 'k1',
-            'hmacSecretRaw' => 'secret',
+            'hmacSecretRaw' => self::HMAC_32,
             'aeadKeyB64' => $aeadKey,
         ]);
 
         [$headers, $body] = $spClient->buildHeadersAndBody('https://api.example.com/v1/bar', 'PUT', ['x' => 'y']);
 
         $keyLoader = function (string $cid, string $kid) use ($aeadKey): array {
-            return ['hmacSecret' => 'secret', 'aeadKeyB64' => $aeadKey];
+            return ['hmacSecret' => self::HMAC_32, 'aeadKeyB64' => $aeadKey];
         };
 
         $spServer = new SecurePayload([
@@ -133,7 +136,7 @@ final class VerifySimpleTest extends TestCase
         $sp = new SecurePayload([
             'mode' => 'hmac',
             'version' => '1',
-            'keyLoader' => fn(string $c, string $k) => ['hmacSecret' => 'secret', 'aeadKeyB64' => null],
+            'keyLoader' => fn(string $c, string $k) => ['hmacSecret' => self::HMAC_32, 'aeadKeyB64' => null],
         ]);
 
         $headers = []; // sengaja kosong

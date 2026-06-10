@@ -86,7 +86,12 @@ final class SecurePayload
      * - hmacSecretRaw: Secret key untuk HMAC (Raw string)
      * - aeadKeyB64: Secret key untuk AEAD (Base64 string)
      * - keyLoader: Callable untuk memuat kunci di sisi server
-     * - replayStore: Callable untuk custom storage replay protection
+     * - replayStore: Callable untuk custom storage replay protection.
+     *                ⚠️  WAJIB di lingkungan multi-server/load-balancer.
+     *                    File-based cache bawaan TIDAK terbagi antar worker server.
+     *                    Implementasikan dengan Redis/Memcached untuk produksi.
+     *                    Signature: callable(string $cacheKey, int $ttl): bool
+     *                    Return true jika nonce baru (belum pernah dipakai), false jika replay.
      * - replayTtl: Durasi validitas nonce dalam detik (Default: 120)
      * - clockSkew: Toleransi perbedaan jam dalam detik (Default: 60)
      *
@@ -111,6 +116,16 @@ final class SecurePayload
         $this->clientId = $opts['clientId'] ?? null;
         $this->keyId = $opts['keyId'] ?? null;
         $this->hmacSecretRaw = $opts['hmacSecretRaw'] ?? null;
+        if (
+            isset($this->hmacSecretRaw) &&
+            $this->hmacSecretRaw !== null &&
+            strlen($this->hmacSecretRaw) < 32
+        ) {
+            throw new SecurePayloadException(
+                'HMAC Secret terlalu pendek. Minimum 32 karakter (rekomendasikan 64 byte hex).',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
         $this->aeadKeyB64 = $opts['aeadKeyB64'] ?? null;
         $this->keyLoader = $opts['keyLoader'] ?? null;
         $this->replayStore = $opts['replayStore'] ?? null;
@@ -260,43 +275,44 @@ final class SecurePayload
     }
 
     /**
-     * Mengirim Request HTTP secara Sederhana (Helper Wrapper cURL).
+     * Mengeksekusi HTTP request via cURL.
      *
-     * @param string $url URL Tujuan
-     * @param string $method HTTP Method
-     * @param array $payload Data Payload
-     * @param array<string,string> $extraHeaders Header tambahan jika diperlukan
-     * 
+     * @param string $url URL tujuan.
+     * @param string $method HTTP method (GET, POST, dll).
+     * @param string $body Body request yang sudah diproses.
+     * @param array<string,string> $headers Security headers + extra headers.
+     *
      * @return array{status:int, headers:array<string,string>, body:mixed, error:?string}
      */
-    public function send(string $url, string $method, array $payload, array $extraHeaders = []): array
+    private function executeCurl(string $url, string $method, string $body, array $headers): array
     {
         if (!extension_loaded('curl')) {
-            throw new SecurePayloadException('Ekstensi cURL diperlukan untuk metode send()', SecurePayloadException::SERVER_ERROR);
+            throw new SecurePayloadException('Ekstensi cURL diperlukan', SecurePayloadException::SERVER_ERROR);
         }
-
-        [$headers, $body] = $this->buildHeadersAndBody($url, $method, $payload);
 
         $outHeaders = [];
-        foreach (array_merge($headers, $extraHeaders) as $k => $v) {
+        foreach ($headers as $k => $v) {
             $outHeaders[] = $k . ': ' . $v;
         }
+        $outHeaders[] = 'Content-Type: application/json';
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge($outHeaders, ['Content-Type: application/json']));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $outHeaders);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HEADER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 
         $resp = curl_exec($ch);
         $err = $resp === false ? curl_error($ch) : null;
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        curl_close($ch);
 
         $rawHeaders = substr((string) $resp, 0, $headerSize);
         $bodyStr = substr((string) $resp, $headerSize);
-        curl_close($ch);
 
         $respHeaders = [];
         foreach (preg_split("/\r?\n/", $rawHeaders) as $line) {
@@ -318,6 +334,22 @@ final class SecurePayload
     }
 
     /**
+     * Mengirim Request HTTP secara Sederhana (Helper Wrapper cURL).
+     *
+     * @param string $url URL Tujuan
+     * @param string $method HTTP Method
+     * @param array $payload Data Payload
+     * @param array<string,string> $extraHeaders Header tambahan jika diperlukan
+     * 
+     * @return array{status:int, headers:array<string,string>, body:mixed, error:?string}
+     */
+    public function send(string $url, string $method, array $payload, array $extraHeaders = []): array
+    {
+        [$headers, $body] = $this->buildHeadersAndBody($url, $method, $payload);
+        return $this->executeCurl($url, $method, $body, array_merge($headers, $extraHeaders));
+    }
+
+    /**
      * Membangun Payload Aman yang Berisi Lampiran File (Client-Side).
      *
      * Fungsi ini mempermudah proses pembuatan body request yang menyertakan file.
@@ -334,6 +366,12 @@ final class SecurePayload
      *                               Contoh: ['user_id' => 123, 'keterangan' => 'Foto Profil'].
      * @param string|null $customFileName (Opsional) Nama kustom untuk file tersebut saat diterima server.
      *                                    Jika null, akan menggunakan nama asli dari file fisik.
+     *
+     * @warning Seluruh konten file dimuat ke memori PHP sebelum diproses dan dikonversi
+     *          ke Base64 (+33% overhead). JANGAN gunakan method ini untuk file >10MB
+     *          tanpa meningkatkan `memory_limit` PHP secara eksplisit.
+     *          Untuk transfer file besar, pertimbangkan menggunakan multipart/form-data
+     *          standar dan hanya sign/verify hash file-nya saja via payload JSON biasa.
      *
      * @return array{0: array<string,string>, 1: string} 
      *         Mengembalikan array tuple:
@@ -387,52 +425,8 @@ final class SecurePayload
      */
     public function sendFile(string $url, string $method, string $filePath, array $data = [], ?string $customFileName = null, array $extraHeaders = []): array
     {
-        // 1. Build Payload khusus file
         [$headers, $body] = $this->buildFilePayload($url, $method, $filePath, $data, $customFileName);
-
-        // 2. Reuse logika curl dari send() manual
-
-        if (!extension_loaded('curl')) {
-            throw new SecurePayloadException('Ekstensi cURL diperlukan', SecurePayloadException::SERVER_ERROR);
-        }
-
-        $outHeaders = [];
-        foreach (array_merge($headers, $extraHeaders) as $k => $v) {
-            $outHeaders[] = $k . ': ' . $v;
-        }
-
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge($outHeaders, ['Content-Type: application/json']));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HEADER, true);
-
-        $resp = curl_exec($ch);
-        $err = $resp === false ? curl_error($ch) : null;
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-
-        $rawHeaders = substr((string) $resp, 0, $headerSize);
-        $bodyStr = substr((string) $resp, $headerSize);
-        curl_close($ch);
-
-        $respHeaders = [];
-        foreach (preg_split("/\\r?\\n/", $rawHeaders) as $line) {
-            if (strpos($line, ':') !== false) {
-                [$hk, $hv] = array_map('trim', explode(':', $line, 2));
-                if ($hk !== '')
-                    $respHeaders[$hk] = $hv;
-            }
-        }
-
-        $json = json_decode($bodyStr, true);
-        return [
-            'status' => $code,
-            'headers' => $respHeaders,
-            'body' => $json !== null ? $json : $bodyStr,
-            'error' => $err,
-        ];
+        return $this->executeCurl($url, $method, $body, array_merge($headers, $extraHeaders));
     }
 
     /**
@@ -550,6 +544,17 @@ final class SecurePayload
         $aeadAlg = $H[self::upper(self::HX_AEAD_ALG)] ?? '';
         $aeadNonceHdrB64 = $H[self::upper(self::HX_AEAD_NONCE)] ?? '';
 
+        // Mode 'aead' dan 'both' WAJIB terenkripsi. Jika header AEAD hilang atau
+        // algoritmanya tidak dikenal, tolak request — JANGAN lewati blok ini diam-diam.
+        // Tanpa pengecekan ini, mode 'both' bisa di-downgrade menjadi HMAC-only
+        // sehingga server menerima body plaintext (kebocoran jaminan kerahasiaan).
+        if (($this->mode === 'aead' || $this->mode === 'both') && $aeadAlg !== self::AEAD_ALG) {
+            throw new SecurePayloadException(
+                'Mode ' . $this->mode . ' mewajibkan enkripsi AEAD, namun header AEAD tidak ada atau algoritmanya tidak dikenal',
+                SecurePayloadException::UNAUTHORIZED
+            );
+        }
+
         // Deteksi apakah ini request terenkripsi
         if (($this->mode === 'aead' || $this->mode === 'both') && $aeadAlg === self::AEAD_ALG) {
             $json = json_decode($rawBody, true);
@@ -635,6 +640,13 @@ final class SecurePayload
                 throw new SecurePayloadException('Integritas Body Digest HMAC gagal', SecurePayloadException::UNPROCESSABLE);
             }
 
+            if ($hmacRaw !== null && strlen($hmacRaw) < 32) {
+                throw new SecurePayloadException(
+                    'HMAC Secret yang dimuat dari keyLoader terlalu pendek (minimum 32 karakter).',
+                    SecurePayloadException::SERVER_ERROR
+                );
+            }
+
             if (!$hmacRaw) {
                 throw new SecurePayloadException('Secret Key HMAC tidak ditemukan di server', SecurePayloadException::SERVER_ERROR);
             }
@@ -647,7 +659,7 @@ final class SecurePayload
                 throw new SecurePayloadException('Tanda Tangan (Signature) tidak valid', SecurePayloadException::UNAUTHORIZED);
             }
 
-            $result['mode'] = ($this->mode === 'both' and isset($rawBodyForHmac)) ? 'BOTH' : 'HMAC';
+            $result['mode'] = ($this->mode === 'both' && isset($rawBodyForHmac)) ? 'BOTH' : 'HMAC';
             $result['bodyPlain'] = $bodyForHmac;
             $result['json'] = json_decode($bodyForHmac, true);
             return $result;
@@ -747,7 +759,7 @@ final class SecurePayload
         }
 
         // 2. Validasi Metadata File
-        $name = $attachment['name'] ?? 'unknown';
+        $name = basename((string) ($attachment['name'] ?? 'unknown'));
         $size = (int) ($attachment['size'] ?? 0);
         $contentB64 = $attachment['content'] ?? '';
 
@@ -914,10 +926,27 @@ final class SecurePayload
 
     private function checkReplay(string $cid, string $kid, string $tsStr, string $nonceB64): void
     {
-        $cacheKey = 'sp_' . substr(hash('sha256', "$cid|$kid|$tsStr|$nonceB64"), 0, 48);
+        // Sebuah nonce harus "diingat" selama request yang membawanya masih bisa
+        // dianggap segar oleh validasi timestamp, yaitu replayTtl + clockSkew.
+        // Jika hanya replayTtl, ada celah waktu di mana nonce sudah dilupakan
+        // namun timestamp masih valid sehingga replay (dengan ts dimutasi) lolos.
+        $memoryTtl = $this->replayTtl + $this->clockSkew;
+
+        // Probabilistic Garbage Collection: ~0.2% chance per request
+        // Wajib gunakan $replayStore kustom (Redis/Memcached) di lingkungan produksi.
+        if (random_int(1, 500) === 1) {
+            $this->cleanupNonceFiles();
+        }
+
+        // PENTING: timestamp TIDAK dimasukkan ke dalam kunci replay. Sebuah nonce
+        // wajib sekali-pakai terlepas dari nilai timestamp. Pada mode 'aead'
+        // timestamp tidak ditandatangani/terotentikasi, sehingga jika ts ikut
+        // menjadi bagian kunci, penyerang cukup mengubah ts untuk memutar ulang
+        // request dengan nonce yang sama (replay attack).
+        $cacheKey = 'sp_' . substr(hash('sha256', "$cid|$kid|$nonceB64"), 0, 48);
 
         if ($this->replayStore) {
-            $okNew = (bool) call_user_func($this->replayStore, $cacheKey, $this->replayTtl);
+            $okNew = (bool) call_user_func($this->replayStore, $cacheKey, $memoryTtl);
             if (!$okNew) {
                 throw new SecurePayloadException('Replay detected (Store)', SecurePayloadException::UNAUTHORIZED);
             }
@@ -936,8 +965,9 @@ final class SecurePayload
         // Untuk produksi high-concurrency, WAJIB gunakan Redis/Memcached via $replayStore.
 
         if (file_exists($f)) {
-            $age = time() - (int) @filemtime($f);
-            if ($age < $this->replayTtl) {
+            $mtime = filemtime($f);
+            $age = $mtime !== false ? time() - $mtime : $memoryTtl + 1;
+            if ($age < $memoryTtl) {
                 throw new SecurePayloadException('Replay detected (File)', SecurePayloadException::UNAUTHORIZED, ['age' => $age]);
             }
         }
@@ -953,8 +983,8 @@ final class SecurePayload
                 // Jika file sudah ada isinya/ukurannya 0 tapi mtime baru saja, reject? 
                 // Di sini kita asumsikan keberadaan file + mtime baru = key sudah terpakai
 
-                // Jika baru saja disentuh oleh proses lain dalam durasi TTL
-                if ($stat['size'] > 0 && $age < $this->replayTtl) {
+                // Jika baru saja disentuh oleh proses lain dalam durasi memory TTL
+                if ($stat['size'] > 0 && $age < $memoryTtl) {
                     flock($fp, LOCK_UN);
                     fclose($fp);
                     throw new SecurePayloadException('Replay detected (Locked)', SecurePayloadException::UNAUTHORIZED);
@@ -970,6 +1000,35 @@ final class SecurePayload
         } else {
             // Fallback jika gagal open file
             @touch($f);
+        }
+    }
+
+    /**
+     * Membersihkan file nonce cache yang sudah kedaluwarsa di direktori temp.
+     * Dipanggil secara probabilistik untuk mencegah storage exhaustion.
+     * 
+     * @internal
+     */
+    private function cleanupNonceFiles(): void
+    {
+        $dir = sys_get_temp_dir();
+        $pattern = $dir . DIRECTORY_SEPARATOR . 'sp_*';
+        $files = glob($pattern);
+
+        if (!$files) {
+            return;
+        }
+
+        $cutoff = time() - ($this->replayTtl + $this->clockSkew);
+
+        foreach ($files as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+            $mtime = @filemtime($file);
+            if ($mtime !== false && $mtime < $cutoff) {
+                @unlink($file);
+            }
         }
     }
 

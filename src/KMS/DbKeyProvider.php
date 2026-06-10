@@ -39,6 +39,8 @@ final class DbKeyProvider implements SecureKeyProvider
      *                    ['table'=>'...', 'colClient'=>'...', 'colKey'=>'...',
      *                     'colHmac'=>'...', 'colAeadB64'=>'...',
      *                     'colWrapped'=>'...', 'colKekId'=>'...']
+     *                    CATATAN: Nama tabel dan kolom hanya boleh mengandung [A-Za-z0-9_].
+     *                             Jangan gunakan SQL Reserved Words sebagai nama kolom.
      * @param Kms|null $kms Instance KMS untuk membuka kunci AEAD yang terbungkus (wrapped).
      */
     public function __construct(PDO $pdo, array $opts = [], ?Kms $kms = null)
@@ -121,9 +123,20 @@ final class DbKeyProvider implements SecureKeyProvider
         ];
     }
 
+    /**
+     * Memvalidasi identifier SQL (nama tabel/kolom) agar aman digunakan dalam query.
+     * Hanya mengizinkan karakter alfanumerik dan underscore (whitelist).
+     * Melempar exception jika identifier mengandung karakter berbahaya.
+     *
+     * @throws \InvalidArgumentException Jika identifier tidak valid.
+     */
     private function q(string $id): string
     {
-        // Quote column names (basic SQL injection prevention for identifiers)
-        return '`' . str_replace('`', '``', $id) . '`';
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $id)) {
+            throw new \InvalidArgumentException(
+                "Nama tabel/kolom tidak valid: '$id'. Hanya huruf, angka, dan underscore yang diizinkan."
+            );
+        }
+        return $id; // Identifier sudah bersih, tidak perlu quoting
     }
 }

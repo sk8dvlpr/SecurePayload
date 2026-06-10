@@ -110,6 +110,26 @@ if (!$result['ok']) {
 $data = $result['json']; 
 ```
 
+> ℹ️ **Isolasi Client**: Setiap `clientId` + `keyId` harus memiliki env var kunci
+> sendiri (`SECUREPAYLOAD_{CID}_{KID}_HMAC_SECRET`). Pastikan semua kombinasi
+> clientId yang valid sudah dikonfigurasi. Jika kunci tidak ditemukan, request
+> akan ditolak.
+
+> ⚠️ **Wajib di Multi-Server**: Cache nonce bawaan menggunakan filesystem lokal
+> dan TIDAK terbagi antar server. Di lingkungan dengan load balancer atau multiple
+> worker, **wajib** mengimplementasikan `replayStore` kustom menggunakan
+> Redis, Memcached, atau database terpusat. Tanpa ini, replay attack bisa berhasil
+> jika request diarahkan ke server yang berbeda.
+
+### 3. Pengiriman File (File Transfer)
+
+SecurePayload menyediakan helper khusus untuk transfer file secara aman.
+
+> ⚠️ **Peringatan Memori**: `buildFilePayload()` dan `sendFile()` memuat seluruh
+> file ke RAM dan menambah overhead Base64 sebesar ~33%. Batas aman penggunaan:
+> **≤10MB** dengan `memory_limit` PHP default (128MB).
+> Untuk file lebih besar, gunakan multipart/form-data dan sign hash-nya saja.
+
 ---
 
 ## 📂 Contoh Integrasi Framework

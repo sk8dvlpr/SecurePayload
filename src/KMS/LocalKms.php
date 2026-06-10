@@ -38,6 +38,7 @@ final class LocalKms implements Kms
         if ($key === null) throw new RuntimeException("Unknown KEK id: $kekId");
 
         $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+        ksort($aad);
         $aadStr = json_encode($aad, JSON_UNESCAPED_SLASHES);
         $ct = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($plaintext, $aadStr, $nonce, $key);
         return base64_encode($nonce . $ct);
@@ -54,6 +55,7 @@ final class LocalKms implements Kms
 
         $nonce = substr($raw, 0, 24);
         $ct    = substr($raw, 24);
+        ksort($aad);
         $aadStr = json_encode($aad, JSON_UNESCAPED_SLASHES);
         $pt = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($ct, $aadStr, $nonce, $key);
         if ($pt === false) throw new RuntimeException('Unwrap failed (bad AAD or key)');

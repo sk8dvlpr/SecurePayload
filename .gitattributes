@@ -1,0 +1,11 @@
+# Exclude development-only files from the Composer/Packagist dist tarball.
+# Consumers installing via `composer require` get only the runtime library.
+
+/tests              export-ignore
+/examples           export-ignore
+/.github            export-ignore
+/.gitignore         export-ignore
+/.gitattributes     export-ignore
+/phpunit.xml.dist   export-ignore
+/phpstan.neon       export-ignore
+/CLAUDE.md          export-ignore
