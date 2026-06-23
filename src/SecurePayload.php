@@ -532,7 +532,7 @@ final class SecurePayload
      */
     public function buildFilePayload(string $url, string $method, string $filePath, array $data = [], ?string $customFileName = null, array $extraHeaders = []): array
     {
-        if (!file_exists($filePath) || !is_readable($filePath)) {
+        if (!is_file($filePath) || !is_readable($filePath)) {
             throw new SecurePayloadException("File tidak ditemukan atau tidak terbaca: $filePath", SecurePayloadException::BAD_REQUEST);
         }
 

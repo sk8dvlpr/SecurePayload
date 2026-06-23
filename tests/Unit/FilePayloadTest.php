@@ -57,9 +57,9 @@ final class FilePayloadTest extends TestCase
         ]);
         
         $this->expectException(\SecurePayload\Exceptions\SecurePayloadException::class);
-        $this->expectExceptionMessage('Gagal membaca file');
-        
-        // Pass a directory, file_exists is true, is_readable is true, but file_get_contents will fail
+        $this->expectExceptionMessage('tidak ditemukan atau tidak terbaca');
+
+        // Pass a directory: is_file() is false on all platforms, so it is rejected deterministically.
         @$sp->buildFilePayload('http://test.com', 'POST', __DIR__);
     }
 
