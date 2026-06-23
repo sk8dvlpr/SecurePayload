@@ -221,5 +221,28 @@ final class KeyManagerTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $manager->generateKeyPair('client', 'key', null); // kekId null dengan KMS aktif
     }
+
+    // [COV-KM-03] generateEd25519KeyPair menghasilkan kunci valid yang bisa dipakai sodium
+    public function testGenerateEd25519KeyPair_ProducesValidUsableKeys(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('ext-sodium required');
+        }
+        $km = new KeyManager();
+        $kp = $km->generateEd25519KeyPair();
+
+        $this->assertArrayHasKey('publicB64', $kp);
+        $this->assertArrayHasKey('secretB64', $kp);
+
+        $pub = base64_decode($kp['publicB64'], true);
+        $sec = base64_decode($kp['secretB64'], true);
+        $this->assertSame(SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES, strlen($pub));
+        $this->assertSame(SODIUM_CRYPTO_SIGN_SECRETKEYBYTES, strlen($sec));
+
+        // Bukti pasangan kunci benar-benar cocok: sign lalu verify.
+        $msg = 'pesan-uji';
+        $sig = sodium_crypto_sign_detached($msg, $sec);
+        $this->assertTrue(sodium_crypto_sign_verify_detached($sig, $msg, $pub));
+    }
 }
 

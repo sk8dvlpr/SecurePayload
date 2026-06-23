@@ -106,6 +106,42 @@ final class DbKeyProviderTest extends TestCase
 
         $this->assertNull($keys['hmacSecret']);
         $this->assertNull($keys['aeadKeyB64']);
+        $this->assertNull($keys['ed25519PublicKeyB64']);
+    }
+
+    public function testLoad_DefaultDoesNotSelectEd25519Column(): void
+    {
+        // Skema lama tanpa kolom ed25519_public_b64 tetap berfungsi (opt-in).
+        $this->insertKey([
+            'client_id' => 'ceold',
+            'key_id' => 'kold',
+            'hmac_secret' => 'plain-hmac-secret-123',
+        ]);
+
+        $provider = new DbKeyProvider($this->pdo);
+        $keys = $provider->load('ceold', 'kold');
+
+        $this->assertSame('plain-hmac-secret-123', $keys['hmacSecret']);
+        $this->assertNull($keys['ed25519PublicKeyB64']);
+    }
+
+    public function testLoad_WithEd25519Column_ReturnsPublicKey(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec("CREATE TABLE secure_keys (
+            client_id TEXT, key_id TEXT, hmac_secret TEXT,
+            aead_key_b64 TEXT, wrapped_b64 TEXT, kek_id TEXT,
+            ed25519_public_b64 TEXT
+        )");
+        $pubB64 = base64_encode(str_repeat("\x22", 32));
+        $pdo->exec("INSERT INTO secure_keys (client_id, key_id, ed25519_public_b64)
+            VALUES ('ced', 'ked', '$pubB64')");
+
+        $provider = new DbKeyProvider($pdo, ['useEd25519' => true]);
+        $keys = $provider->load('ced', 'ked');
+
+        $this->assertSame($pubB64, $keys['ed25519PublicKeyB64']);
     }
 
     public function testLoad_WrappedKey_WithKms_ReturnsUnwrapped(): void

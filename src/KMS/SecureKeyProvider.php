@@ -5,6 +5,6 @@ namespace SecurePayload\KMS;
 
 interface SecureKeyProvider
 {
-    /** @return array{hmacSecret:?string,aeadKeyB64:?string} */
+    /** @return array{hmacSecret:?string,aeadKeyB64:?string,ed25519PublicKeyB64?:?string} */
     public function load(string $clientId, string $keyId): array;
 }

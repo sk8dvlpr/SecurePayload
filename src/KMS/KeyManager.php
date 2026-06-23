@@ -32,7 +32,7 @@ final class KeyManager
      * @param string $clientId
      * @param string $keyId
      * @param string|null $kekId ID KEK (Key Encryption Key) yang ada di KMS. Wajib jika $kms ada.
-     * 
+     *
      * @return GeneratedKeyResult Objek hasil yang berisi raw key dan SQL/Data siap simpan.
      */
     public function generateKeyPair(string $clientId, string $keyId, ?string $kekId = null): GeneratedKeyResult
@@ -68,6 +68,27 @@ final class KeyManager
             $wrappedB64,
             $kekId
         );
+    }
+
+    /**
+     * Generate pasangan kunci asimetris Ed25519 (untuk signAlg='ed25519').
+     *
+     * Mengembalikan public key (untuk server, disimpan di DB) dan secret key
+     * (untuk client, JANGAN disimpan di server). Memerlukan ekstensi sodium.
+     *
+     * @return array{publicB64:string, secretB64:string} Pasangan kunci dalam base64.
+     * @throws RuntimeException Jika ekstensi sodium tidak tersedia.
+     */
+    public function generateEd25519KeyPair(): array
+    {
+        if (!extension_loaded('sodium')) {
+            throw new RuntimeException('Ekstensi sodium diperlukan untuk membangkitkan kunci Ed25519');
+        }
+        $pair = sodium_crypto_sign_keypair();
+        return [
+            'publicB64' => base64_encode(sodium_crypto_sign_publickey($pair)),
+            'secretB64' => base64_encode(sodium_crypto_sign_secretkey($pair)),
+        ];
     }
 }
 

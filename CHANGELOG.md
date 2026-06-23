@@ -1,5 +1,99 @@
 # Changelog
 
+## [2.7.0] - 2026-06-23
+### Added
+- **Observability & Audit Hooks (Phase 8)** — opsi konstruktor `onSecurityEvent: fn(string $event, array $context): void` untuk meneruskan event keamanan ke SIEM / rate-limiter.
+  - Event diemit pada: timestamp di luar batas (`timestamp_invalid`), replay terdeteksi (`replay_detected`), dekripsi gagal (`decrypt_failed`), signature invalid (`signature_invalid`), key tidak ditemukan (`key_not_found`), dan nonce mismatch (`nonce_mismatch`) — tersedia sebagai konstanta `SecurePayload::EVENT_*`.
+  - Context event hanya memuat data non-rahasia (`clientId`/`keyId` + penanda ringan) — **tidak pernah** secret, plaintext, atau ciphertext.
+
+### Notes
+- Murni aditif & observasional: **tidak mengubah alur/keamanan verifikasi** maupun format wire. Exception dari callback ditelan agar observability tidak pernah memengaruhi verifikasi.
+
+## [2.6.0] - 2026-06-22
+### Added
+- **Adapter Cloud KMS (Phase 7)** — implementasi `Kms` (`wrap()`/`unwrap()`) untuk penyedia terkelola:
+  - `SecurePayload\KMS\VaultKms` — HashiCorp Vault **Transit** engine (token auth, transport HTTP injectable, default cURL). AAD context dipetakan ke parameter `context` Transit (memerlukan kunci `derived=true`).
+  - `SecurePayload\KMS\AwsKms` — membungkus `Aws\Kms\KmsClient` (dependensi opsional). AAD context dipetakan ke **EncryptionContext** AWS KMS.
+- Kedua adapter menjaga kontrak AAD context `['client_id','key_id','purpose']`, konsisten dengan `LocalKms`, dan langsung dapat di-inject ke `DbKeyProvider`/`KeyManager`.
+- `aws/aws-sdk-php` ditambahkan ke `suggest` (opsional, tidak masuk core).
+
+### Notes
+- **Tidak mengubah format wire** — hanya mekanisme *wrap/unwrap* kunci AEAD di server. Aditif murni; tidak ada kenaikan `version`.
+
+## [2.5.0] - 2026-06-22
+### Added
+- **Streaming AEAD untuk file besar (Phase 6)**: API baru `buildFileStream()` / `verifyFileStream()` yang memproses file **per-chunk** memakai XChaCha20-Poly1305 *secretstream* — tanpa memuat seluruh file ke memori (berbeda dari `buildFilePayload()` yang base64 in-memory).
+  - `buildFileStream(src, dest, meta, chunkSize=64KiB)` menulis ciphertext ber-frame ke `dest` dan mengembalikan **manifest** kecil (nama, ukuran, MIME, header secretstream, digest ciphertext) untuk dikirim & ditandatangani lewat jalur request biasa.
+  - `verifyFileStream(enc, manifest, dest, constraints)` mendekripsi per-chunk dengan validasi keamanan file yang sama (`max_size`, `allowed_exts`, `block_dangerous`, `strict_mime` magic-byte sniffing).
+  - Kunci stream diturunkan dari AEAD key instance; mendukung opsi `deriveKeys` (purpose `sp-aead-stream`).
+  - Contoh `examples/file-stream/` (sender + receiver).
+
+### Security
+- Proteksi **truncation & append**: penanda akhir `TAG_FINAL` wajib ada dan tunggal; data setelahnya ditolak.
+- **Digest ciphertext** dicocokkan terhadap manifest yang sudah ditandatangani; tiap chunk diautentikasi tag Poly1305.
+- **GAGAL-TERTUTUP**: bila verifikasi gagal di tahap mana pun, file plaintext parsial di `dest` otomatis dihapus.
+
+### Changed
+- Logika validasi ekstensi & MIME file diekstrak menjadi helper bersama (dipakai `verifyFilePayload` dan `verifyFileStream`) — perilaku & pesan error tidak berubah.
+
+## [2.4.0] - 2026-06-22
+### Added
+- **Derivasi subkey via HKDF (Phase 5)**: opsi opt-in `deriveKeys: bool`. Bila aktif, kunci HMAC & AEAD yang disuplai diperlakukan sebagai **master key** dan subkey per-fungsi diturunkan via `hash_hkdf('sha256', ...)`. Pemisahan domain: enkripsi request, enkripsi response, signing request, dan signing response masing-masing memakai subkey berbeda (`sp-aead-req`, `sp-aead-resp`, `sp-sign-req`, `sp-sign-resp`), sehingga kompromi satu subkey tidak meruntuhkan fungsi lain.
+  - Helper publik `SecurePayload::deriveKey(string $master, string $purpose, int $len = 32): string` untuk derivasi HKDF terdokumentasi.
+  - Label `info` HKDF diikat ke versi protokol (`...|v{version}`), sehingga subkey otomatis berbeda antar versi.
+  - **Tidak** berlaku untuk signing Ed25519 (sudah asimetris) — hanya HMAC & AEAD yang diturunkan.
+
+### Security
+- `deriveKeys` **WAJIB identik di client & server**. Konfigurasi yang tidak cocok GAGAL-TERTUTUP (signature/dekripsi invalid) — tidak ada jalur downgrade diam-diam.
+
+### Notes
+- Opt-in dan **backward-compatible**: default `deriveKeys = false` → kunci dipakai langsung, perilaku wire byte-identik dengan v2.3.0. Karena itu `DEFAULT_VERSION` tetap `'3'` (tidak ada kenaikan versi paksaan untuk fitur opsional). Saat diaktifkan, format efektif berubah; pastikan kedua sisi sinkron.
+
+## [2.3.0] - 2026-06-19
+### Added
+- **Adapter replay-store PSR-16 (Phase 4)**: `SecurePayload\ReplayStore\Psr16ReplayStore` membungkus cache `Psr\SimpleCache\CacheInterface` apa pun menjadi callable `replayStore` (`fn(string $key, int $ttl): bool`). Bersifat *invokable* sehingga bisa langsung dipasang sebagai `replayStore`.
+  - Memakai jalur **atomik** `add()` bila cache yang dibungkus menyediakannya; jatuh ke `has()+set()` (best-effort) untuk PSR-16 murni. Method `isAtomic()` untuk diagnostik.
+- **Contoh replay-store siap pakai** di `examples/replay-store/`: `redis.php` (`SET NX`), `memcached.php` (`add()`), dan `psr16.php` (adapter bawaan), beserta dokumentasi jaminan atomicity.
+- Dependensi opsional `psr/simple-cache` ditambahkan ke `suggest` (dan `require-dev` untuk pengujian) — **tidak** wajib bagi konsumen yang tidak memakai adapter ini.
+
+### Notes
+- Phase 4 bersifat **aditif murni** — tidak mengubah format wire maupun titik ekstensi `replayStore` yang sudah ada; tidak ada kenaikan `version` protokol.
+
+## [2.2.0] - 2026-06-18
+### Security
+- **Binding timestamp ke AAD (Phase 3)**: `X-Timestamp` request kini selalu diikat ke AAD AEAD. Pada mode `aead` (yang tidak ditandatangani HMAC), manipulasi timestamp otomatis menggagalkan dekripsi — bukan hanya ditolak oleh validasi kesegaran.
+- **Binding header kritikal ke AAD**: opsi konstruktor baru `bindHeaders: string[]` (mis. `['Content-Type']`). Nilai header yang terdaftar diikat ke AAD; perubahan **maupun penghapusan** nilainya menggagalkan dekripsi. Nama header diperlakukan case-insensitive dan diurutkan (`ksort`) agar AAD identik di client & server. Konfigurasi WAJIB sama di kedua sisi.
+- **Binding timestamp response ke AAD**: `X-Resp-Timestamp` kini diikat ke AAD response, simetris dengan jalur request.
+
+### Added
+- Parameter opsional `$extraHeaders` pada `buildHeadersAndBody()` dan `buildFilePayload()` untuk memasok nilai header (termasuk yang diikat) di sisi client; juga ikut diteruskan oleh `send()`/`sendFile()`.
+
+### Changed
+- **Breaking Change (wire format)**: `DEFAULT_VERSION` dinaikkan dari `'2'` ke `'3'` karena format AAD berubah. Ciphertext lama (v2) tidak akan terdekripsi; client & server harus migrasi serempak. Binding timestamp/header ke AAD kini **tidak bersyarat** — menyetel `version` ke nilai lama hanya mengubah label versi, bukan mengembalikan perilaku AAD lama. Untuk tetap memakai protokol lama sepenuhnya, tahan pemutakhiran library.
+
+## [2.1.0] - 2026-06-17
+### Added
+- **Pengamanan response dua arah** (Two-Way Integrity): `buildResponse()` (server) menghasilkan response tertanda tangan/terenkripsi, `verifyResponse()` / `verifyResponseOrThrow()` (client) memverifikasinya. Mengikuti mode instance (hmac/aead/both).
+  - Response **diikat ke nonce request asal** (dimasukkan ke pesan kanonik & AAD, tidak ditransmisikan) sehingga tidak bisa dipindah (replay/relocation) ke konteks request lain.
+  - Header response memakai namespace terpisah `X-Resp-*` agar tidak bentrok dengan header request.
+  - Validasi kesegaran timestamp response dan anti-downgrade AEAD pada mode aead/both.
+- **Catatan:** tanda tangan response memakai HMAC-SHA256 dengan secret bersama (bukan Ed25519), karena server tidak memegang private key client; pada mode aead/both autentisitas dijamin oleh AEAD tag. Tanda tangan response asimetris penuh (keypair server) menjadi kandidat phase berikutnya.
+
+## [2.0.0] - 2026-06-17
+### Added
+- **Tanda tangan asimetris Ed25519** (`signAlg => 'ed25519'`): client menandatangani dengan secret key, server memverifikasi dengan public key (libsodium `crypto_sign`). Memberi *non-repudiation* dan memperkecil blast-radius bila kunci server bocor (server tidak lagi bisa memalsukan request client). HMAC (`signAlg => 'hmac'`) tetap default.
+  - Opsi konstruktor baru: `signAlg`, `ed25519SecretKeyB64` (client).
+  - `keyLoader`/provider kini dapat mengembalikan `ed25519PublicKeyB64` (server).
+  - `KeyManager::generateEd25519KeyPair()` untuk membangkitkan pasangan kunci.
+  - `EnvKeyProvider`: membaca `SECUREPAYLOAD_{CID}_{KID}_ED25519_PUBLIC_B64`.
+  - `DbKeyProvider`: kolom opsional `ed25519_public_b64` (aktifkan via `opts['useEd25519'] = true`).
+
+### Security
+- Algoritma tanda tangan ditentukan oleh konfigurasi server (`signAlg`), **bukan** dari header `X-Signature-Algorithm`. Header yang tidak cocok ditolak — mencegah downgrade tanda tangan (Ed25519 ↔ HMAC).
+
+### Changed
+- **Breaking Change**: `DEFAULT_VERSION` dinaikkan dari `'1'` ke `'2'`. Client dan server harus memakai versi protokol yang sama; lakukan migrasi serempak. Pengguna yang ingin tetap di protokol lama dapat menyetel `version => '1'` secara eksplisit di kedua sisi.
+
 ## [1.3.0] - 2026-01-20
 ### Added
 - **File Upload Support**: Added secure file transfer capabilities.

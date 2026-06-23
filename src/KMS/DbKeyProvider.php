@@ -19,6 +19,7 @@ use RuntimeException;
  * - aead_key_b64 (string|null)
  * - wrapped_b64 (string|null)
  * - kek_id (string|null)
+ * - ed25519_public_b64 (string|null)  -- opsional, hanya dibaca jika opts['useEd25519']=true
  */
 final class DbKeyProvider implements SecureKeyProvider
 {
@@ -30,6 +31,8 @@ final class DbKeyProvider implements SecureKeyProvider
     private string $colAeadB64;
     private string $colWrapped;
     private string $colKekId;
+    private string $colEd25519Pub;
+    private bool $useEd25519;
 
     private ?Kms $kms;
 
@@ -38,7 +41,9 @@ final class DbKeyProvider implements SecureKeyProvider
      * @param array $opts Opsional mapping nama tabel/kolom:
      *                    ['table'=>'...', 'colClient'=>'...', 'colKey'=>'...',
      *                     'colHmac'=>'...', 'colAeadB64'=>'...',
-     *                     'colWrapped'=>'...', 'colKekId'=>'...']
+     *                     'colWrapped'=>'...', 'colKekId'=>'...',
+     *                     'colEd25519Pub'=>'...', 'useEd25519'=>bool]
+     *                    Set 'useEd25519'=>true untuk membaca kolom public key Ed25519.
      *                    CATATAN: Nama tabel dan kolom hanya boleh mengandung [A-Za-z0-9_].
      *                             Jangan gunakan SQL Reserved Words sebagai nama kolom.
      * @param Kms|null $kms Instance KMS untuk membuka kunci AEAD yang terbungkus (wrapped).
@@ -53,21 +58,32 @@ final class DbKeyProvider implements SecureKeyProvider
         $this->colAeadB64 = $opts['colAeadB64'] ?? 'aead_key_b64';
         $this->colWrapped = $opts['colWrapped'] ?? 'wrapped_b64';
         $this->colKekId = $opts['colKekId'] ?? 'kek_id';
+        $this->colEd25519Pub = $opts['colEd25519Pub'] ?? 'ed25519_public_b64';
+        // Kolom Ed25519 bersifat opt-in agar kompatibel dengan skema lama yang
+        // belum memiliki kolom ini. Aktifkan via opts['useEd25519'] = true.
+        $this->useEd25519 = (bool) ($opts['useEd25519'] ?? false);
         $this->kms = $kms;
     }
 
-    /** 
-     * @return array{hmacSecret:?string,aeadKeyB64:?string}
+    /**
+     * @return array{hmacSecret:?string,aeadKeyB64:?string,ed25519PublicKeyB64:?string}
      * @throws RuntimeException Jika terjadi kesalahan query atau dekripsi KMS.
      */
     public function load(string $clientId, string $keyId): array
     {
-        $sql = sprintf(
-            "SELECT %s, %s, %s, %s FROM %s WHERE %s = :cid AND %s = :kid LIMIT 1",
+        $cols = [
             $this->q($this->colHmac),
             $this->q($this->colAeadB64),
             $this->q($this->colWrapped),
             $this->q($this->colKekId),
+        ];
+        if ($this->useEd25519) {
+            $cols[] = $this->q($this->colEd25519Pub);
+        }
+
+        $sql = sprintf(
+            "SELECT %s FROM %s WHERE %s = :cid AND %s = :kid LIMIT 1",
+            implode(', ', $cols),
             $this->q($this->table),
             $this->q($this->colClient),
             $this->q($this->colKey),
@@ -79,13 +95,14 @@ final class DbKeyProvider implements SecureKeyProvider
 
         if (!$row) {
             // Tidak ditemukan bukan error, return null values agar SecurePayload handle auth failure
-            return ['hmacSecret' => null, 'aeadKeyB64' => null];
+            return ['hmacSecret' => null, 'aeadKeyB64' => null, 'ed25519PublicKeyB64' => null];
         }
 
         $hmacSecret = $row[$this->colHmac] ?? null;
         $aeadKeyB64 = $row[$this->colAeadB64] ?? null;
         $wrappedB64 = $row[$this->colWrapped] ?? null;
         $kekId = $row[$this->colKekId] ?? null;
+        $ed25519Pub = $this->useEd25519 ? ($row[$this->colEd25519Pub] ?? null) : null;
 
         // Logika Unwrapping:
         // Jika AEAD Key belum ada (kosong) TAPI ada wrapped key + kek_id, coba buka via KMS.
@@ -120,6 +137,7 @@ final class DbKeyProvider implements SecureKeyProvider
         return [
             'hmacSecret' => ($hmacSecret !== null && $hmacSecret !== '') ? (string) $hmacSecret : null,
             'aeadKeyB64' => ($aeadKeyB64 !== null && $aeadKeyB64 !== '') ? (string) $aeadKeyB64 : null,
+            'ed25519PublicKeyB64' => ($ed25519Pub !== null && $ed25519Pub !== '') ? (string) $ed25519Pub : null,
         ];
     }
 

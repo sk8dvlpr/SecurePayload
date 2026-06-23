@@ -101,6 +101,29 @@ Fitur baru di v1.3.0 untuk mengirim file secara aman (Encrypted + Signed).
 
 ---
 
+## Transfer File Besar — Streaming AEAD (`examples/file-stream/`)
+
+Untuk file besar, gunakan API streaming (`buildFileStream()` / `verifyFileStream()`) yang memproses file **per-chunk** via XChaCha20-Poly1305 *secretstream* — tanpa memuat seluruh file ke RAM.
+
+*   **Pengirim**: `examples/file-stream/stream_sender.php` — enkripsi streaming → manifest (dikirim via request aman) + file ciphertext (diunggah terpisah).
+*   **Penerima**: `examples/file-stream/stream_receiver.php` — verifikasi manifest, lalu `verifyFileStream()` mendekripsi + memvalidasi (ukuran, ekstensi, strict MIME). Gagal-tertutup: plaintext parsial dihapus bila gagal.
+
+> Pemakaian RAM ≈ satu chunk (default 64 KiB; disarankan 256 KiB–1 MiB untuk file besar). Proteksi truncation/append (TAG_FINAL) + digest ciphertext aktif.
+
+---
+
+## Replay Store untuk Multi-Server (`examples/replay-store/`)
+
+Cache nonce **bawaan berbasis file** tidak terbagi antar server/worker. Untuk produksi multi-server, inject `replayStore` yang terpusat. Tiga contoh siap pakai:
+
+*   **Redis (atomik)**: `examples/replay-store/redis.php` — `SET key val NX EX ttl`.
+*   **Memcached (atomik)**: `examples/replay-store/memcached.php` — `Memcached::add()`.
+*   **PSR-16 (adapter bawaan)**: `examples/replay-store/psr16.php` — `Psr16ReplayStore` membungkus cache PSR-16 milik aplikasi.
+
+> **Atomicity**: untuk bebas race-condition, operasi "tandai-jika-belum-ada" harus atomik. Redis (`SET NX`) dan Memcached (`add`) menyediakannya secara native. PSR-16 inti tidak — adapter memakai jalur best-effort kecuali cache yang dibungkus mengekspos `add()`.
+
+---
+
 ## Catatan Keamanan (Penting)
 
 1.  **Mode Operasi**: Sebagian besar contoh menggunakan mode `'both'` (Signature + Encryption) karena ini yang paling aman. Pastikan kedua belah pihak (Client & Server) memiliki konfigurasi mode yang sama.
