@@ -128,6 +128,10 @@ final class GeneratedKeyResult
      */
     public function toSqlInsert(string $tableName = 'secure_keys'): string
     {
+        // Nama tabel di-interpolasi langsung ke SQL (bukan nilai yang di-bind),
+        // jadi wajib divalidasi dengan whitelist untuk mencegah SQL injection.
+        $tableName = $this->qIdentifier($tableName);
+
         $hmacSql = $this->q($this->hmacSecret);
         $kekSql = $this->kekId ? $this->q($this->kekId) : 'NULL';
 
@@ -161,5 +165,22 @@ final class GeneratedKeyResult
     {
         // Simple escape for generated SQL output
         return "'" . addslashes($s) . "'";
+    }
+
+    /**
+     * Validasi identifier SQL (nama tabel) dengan whitelist.
+     * Hanya mengizinkan huruf, angka, dan underscore untuk mencegah SQL injection,
+     * karena identifier ini di-interpolasi langsung ke query (tidak bisa di-bind).
+     *
+     * @throws \InvalidArgumentException Jika nama tabel tidak valid.
+     */
+    private function qIdentifier(string $id): string
+    {
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $id)) {
+            throw new \InvalidArgumentException(
+                "Nama tabel tidak valid: '$id'. Hanya huruf, angka, dan underscore yang diizinkan."
+            );
+        }
+        return $id;
     }
 }
