@@ -3,12 +3,13 @@ declare(strict_types=1);
 
 namespace SecurePayload\KMS;
 
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
  * KeyManager
  * ----------
- * Utility Helper untuk membantu generate, encrypt (wrap), dan menyiapkan SQL
+ * Utility Helper untuk membantu generate, encrypt (wrap), rotasi, dan menyiapkan SQL
  * untuk manajemen kunci (Key Management) SecurePayload.
  *
  * Penggunaan:
@@ -71,6 +72,109 @@ final class KeyManager
     }
 
     /**
+     * Rotasi kunci: generate keyId baru, tandai key lama sebagai retiring dengan grace window.
+     *
+     * @throws InvalidArgumentException Jika graceSeconds <= 0.
+     * @throws RuntimeException         Jika sodium diperlukan tapi tidak tersedia.
+     */
+    public function rotateKey(
+        string $clientId,
+        string $currentKeyId,
+        ?string $newKeyId = null,
+        int $graceSeconds = 86400,
+        ?string $kekId = null,
+        bool $includeEd25519Client = false,
+        bool $includeEd25519Server = false
+    ): KeyRotationResult {
+        if ($graceSeconds <= 0) {
+            throw new InvalidArgumentException('graceSeconds harus lebih besar dari 0');
+        }
+
+        if ($newKeyId === null || $newKeyId === '') {
+            $newKeyId = $currentKeyId . '_rot_' . date('YmdHis');
+        }
+
+        $newKey = $this->generateKeyPair($clientId, $newKeyId, $kekId);
+
+        $ed25519PublicB64 = null;
+        $ed25519SecretB64 = null;
+        $ed25519ServerSecretB64 = null;
+        $ed25519ServerPublicB64 = null;
+
+        if ($includeEd25519Client) {
+            $ed25519Client = $this->generateEd25519KeyPair();
+            $ed25519PublicB64 = $ed25519Client['publicB64'];
+            $ed25519SecretB64 = $ed25519Client['secretB64'];
+        }
+
+        if ($includeEd25519Server) {
+            $ed25519Server = $this->generateEd25519ServerKeyPair();
+            $ed25519ServerSecretB64 = $ed25519Server['secretB64'];
+            $ed25519ServerPublicB64 = $ed25519Server['publicB64'];
+        }
+
+        $newKeyWithExtras = new GeneratedKeyResult(
+            $newKey->clientId,
+            $newKey->keyId,
+            $newKey->hmacSecret,
+            $newKey->aeadKeyB64,
+            $newKey->wrappedKeyB64,
+            $newKey->kekId,
+            $ed25519PublicB64,
+            $ed25519ServerSecretB64,
+            $ed25519ServerPublicB64
+        );
+
+        return new KeyRotationResult(
+            $clientId,
+            $currentKeyId,
+            $newKeyId,
+            time() + $graceSeconds,
+            $newKeyWithExtras,
+            $ed25519SecretB64
+        );
+    }
+
+    /**
+     * Revoke kunci segera (tanpa grace period).
+     *
+     * @throws InvalidArgumentException Jika nama tabel tidak valid.
+     */
+    public function revokeKey(string $clientId, string $keyId, string $table = 'secure_keys'): string
+    {
+        $table = $this->qIdentifier($table);
+
+        return sprintf(
+            "UPDATE `%s` SET status = '%s', valid_until = NULL WHERE client_id = %s AND key_id = %s;",
+            $table,
+            KeyStatus::REVOKED,
+            $this->qValue($clientId),
+            $this->qValue($keyId)
+        );
+    }
+
+    /**
+     * SQL untuk menandai kunci retiring yang sudah lewat valid_until sebagai revoked (cron cleanup).
+     *
+     * @param int|null $now Unix timestamp acuan; default time().
+     *
+     * @throws InvalidArgumentException Jika nama tabel tidak valid.
+     */
+    public function purgeExpiredRetiringKeys(string $table = 'secure_keys', ?int $now = null): string
+    {
+        $table = $this->qIdentifier($table);
+        $now = $now ?? time();
+
+        return sprintf(
+            "UPDATE `%s` SET status = '%s', valid_until = NULL WHERE status = '%s' AND valid_until IS NOT NULL AND valid_until < %d;",
+            $table,
+            KeyStatus::REVOKED,
+            KeyStatus::RETIRING,
+            $now
+        );
+    }
+
+    /**
      * Generate pasangan kunci asimetris Ed25519 (untuk signAlg='ed25519').
      *
      * Mengembalikan public key (untuk server, disimpan di DB) dan secret key
@@ -102,6 +206,23 @@ final class KeyManager
         return $this->generateEd25519KeyPair();
     }
 
+    /**
+     * @throws InvalidArgumentException Jika nama tabel tidak valid.
+     */
+    private function qIdentifier(string $id): string
+    {
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $id)) {
+            throw new InvalidArgumentException(
+                "Nama tabel tidak valid: '$id'. Hanya huruf, angka, dan underscore yang diizinkan."
+            );
+        }
+        return $id;
+    }
+
+    private function qValue(string $s): string
+    {
+        return "'" . addslashes($s) . "'";
+    }
 }
 
 /**
@@ -154,9 +275,14 @@ final class GeneratedKeyResult
      * Secara otomatis men-set NULL pada kolom AEAD plaintext jika wrapped key tersedia (Keamanan++).
      *
      * @param string $tableName        Nama tabel tujuan.
+     * @param string $status           Status lifecycle (active/retiring/revoked).
+     * @param bool   $includeLifecycle Sertakan kolom status + valid_until.
      */
     public function toSqlInsert(
-string $tableName = 'secure_keys'): string {
+        string $tableName = 'secure_keys',
+        string $status = KeyStatus::ACTIVE,
+        bool $includeLifecycle = false
+    ): string {
         $tableName = $this->qIdentifier($tableName);
 
         $columns = ['client_id', 'key_id', 'hmac_secret', 'aead_key_b64', 'wrapped_b64', 'kek_id'];
@@ -193,6 +319,12 @@ string $tableName = 'secure_keys'): string {
             $values[] = $this->q($this->ed25519ServerPublicB64);
         }
 
+        if ($includeLifecycle) {
+            $columns[] = 'status';
+            $columns[] = 'valid_until';
+            $values[] = $this->q($status);
+            $values[] = 'NULL';
+        }
 
         return sprintf(
             'INSERT INTO `%s` (%s) VALUES (%s);',
@@ -226,3 +358,55 @@ string $tableName = 'secure_keys'): string {
     }
 }
 
+/**
+ * Value Object hasil rotasi kunci.
+ */
+final class KeyRotationResult
+{
+    public function __construct(
+        public string $clientId,
+        public string $oldKeyId,
+        public string $newKeyId,
+        public int $graceEndsAt,
+        public GeneratedKeyResult $newKey,
+        public ?string $ed25519SecretKeyB64 = null
+    ) {
+    }
+
+    public function toSqlUpdateRetiring(string $tableName = 'secure_keys'): string
+    {
+        $tableName = $this->qIdentifier($tableName);
+
+        return sprintf(
+            "UPDATE `%s` SET status = '%s', valid_until = %d WHERE client_id = %s AND key_id = %s;",
+            $tableName,
+            KeyStatus::RETIRING,
+            $this->graceEndsAt,
+            $this->q($this->clientId),
+            $this->q($this->oldKeyId)
+        );
+    }
+
+    public function toSqlInsertNew(string $tableName = 'secure_keys'): string
+    {
+        return $this->newKey->toSqlInsert($tableName, KeyStatus::ACTIVE, true);
+    }
+
+    private function q(string $s): string
+    {
+        return "'" . addslashes($s) . "'";
+    }
+
+    /**
+     * @throws InvalidArgumentException Jika nama tabel tidak valid.
+     */
+    private function qIdentifier(string $id): string
+    {
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $id)) {
+            throw new InvalidArgumentException(
+                "Nama tabel tidak valid: '$id'. Hanya huruf, angka, dan underscore yang diizinkan."
+            );
+        }
+        return $id;
+    }
+}

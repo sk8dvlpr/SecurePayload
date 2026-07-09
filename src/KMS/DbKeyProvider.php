@@ -22,6 +22,8 @@ use RuntimeException;
  * - ed25519_public_b64 (string|null)  -- opsional, hanya dibaca jika opts['useEd25519']=true
  * - ed25519_server_secret_b64 (string|null) -- opsional, jika opts['useEd25519Server']=true
  * - ed25519_server_public_b64 (string|null) -- opsional, jika opts['useEd25519Server']=true
+ * - status (string|null) -- opsional, jika opts['useKeyLifecycle']=true (active/retiring/revoked)
+ * - valid_until (integer|null) -- unix timestamp akhir grace untuk status retiring
  */
 final class DbKeyProvider implements SecureKeyProvider
 {
@@ -38,6 +40,13 @@ final class DbKeyProvider implements SecureKeyProvider
     private string $colEd25519ServerSecret;
     private string $colEd25519ServerPub;
     private bool $useEd25519Server;
+    private bool $useKeyLifecycle;
+    private string $colStatus;
+    private string $colValidUntil;
+
+    /** @var callable */
+    private $clock;
+
     private ?Kms $kms;
 
     /**
@@ -48,9 +57,12 @@ final class DbKeyProvider implements SecureKeyProvider
      *                     'colWrapped'=>'...', 'colKekId'=>'...',
      *                     'colEd25519Pub'=>'...', 'useEd25519'=>bool,
      *                     'colEd25519ServerSecret'=>'...', 'colEd25519ServerPub'=>'...',
-     *                     'useEd25519Server'=>bool]
+     *                     'useEd25519Server'=>bool,
+     *                     'useKeyLifecycle'=>bool, 'colStatus'=>'...', 'colValidUntil'=>'...',
+     *                     'clock'=>callable]
      *                    Set 'useEd25519'=>true untuk membaca kolom public key Ed25519 client.
      *                    Set 'useEd25519Server'=>true untuk kolom kunci Ed25519 server (response).
+     *                    Set 'useKeyLifecycle'=>true untuk filter status active/retiring/revoked.
      *                    CATATAN: Nama tabel dan kolom hanya boleh mengandung [A-Za-z0-9_].
      *                             Jangan gunakan SQL Reserved Words sebagai nama kolom.
      * @param Kms|null $kms Instance KMS untuk membuka kunci AEAD yang terbungkus (wrapped).
@@ -72,6 +84,10 @@ final class DbKeyProvider implements SecureKeyProvider
         $this->colEd25519ServerSecret = $opts['colEd25519ServerSecret'] ?? 'ed25519_server_secret_b64';
         $this->colEd25519ServerPub = $opts['colEd25519ServerPub'] ?? 'ed25519_server_public_b64';
         $this->useEd25519Server = (bool) ($opts['useEd25519Server'] ?? false);
+        $this->useKeyLifecycle = (bool) ($opts['useKeyLifecycle'] ?? false);
+        $this->colStatus = $opts['colStatus'] ?? 'status';
+        $this->colValidUntil = $opts['colValidUntil'] ?? 'valid_until';
+        $this->clock = $opts['clock'] ?? static fn (): int => time();
         $this->kms = $kms;
     }
 
@@ -81,7 +97,9 @@ final class DbKeyProvider implements SecureKeyProvider
      *   aeadKeyB64:?string,
      *   ed25519PublicKeyB64:?string,
      *   ed25519SecretKeyServerB64:?string,
-     *   ed25519PublicKeyServerB64:?string
+     *   ed25519PublicKeyServerB64:?string,
+     *   keyStatus?:string,
+     *   validUntil?:?int
      * }
      * @throws RuntimeException Jika terjadi kesalahan query atau dekripsi KMS.
      */
@@ -108,6 +126,10 @@ final class DbKeyProvider implements SecureKeyProvider
             $cols[] = $this->q($this->colEd25519ServerSecret);
             $cols[] = $this->q($this->colEd25519ServerPub);
         }
+        if ($this->useKeyLifecycle) {
+            $cols[] = $this->q($this->colStatus);
+            $cols[] = $this->q($this->colValidUntil);
+        }
 
         $sql = sprintf(
             "SELECT %s FROM %s WHERE %s = :cid AND %s = :kid LIMIT 1",
@@ -125,6 +147,15 @@ final class DbKeyProvider implements SecureKeyProvider
             return $empty;
         }
 
+        if ($this->useKeyLifecycle) {
+            $status = $row[$this->colStatus] ?? null;
+            $validUntil = $row[$this->colValidUntil] ?? null;
+            $validUntilInt = ($validUntil !== null && $validUntil !== '') ? (int) $validUntil : null;
+
+            if (!$this->isKeyLoadable($status, $validUntilInt)) {
+                return $empty;
+            }
+        }
 
         $hmacSecret = $row[$this->colHmac] ?? null;
         $aeadKeyB64 = $row[$this->colAeadB64] ?? null;
@@ -167,7 +198,34 @@ final class DbKeyProvider implements SecureKeyProvider
             'ed25519PublicKeyServerB64' => ($ed25519ServerPub !== null && $ed25519ServerPub !== '') ? (string) $ed25519ServerPub : null,
         ];
 
+        if ($this->useKeyLifecycle) {
+            $status = $row[$this->colStatus] ?? null;
+            $validUntil = $row[$this->colValidUntil] ?? null;
+            $normalizedStatus = ($status === null || $status === '') ? KeyStatus::ACTIVE : (string) $status;
+            $result['keyStatus'] = $normalizedStatus;
+            $result['validUntil'] = ($validUntil !== null && $validUntil !== '') ? (int) $validUntil : null;
+        }
+
         return $result;
+    }
+
+    private function isKeyLoadable(?string $status, ?int $validUntil): bool
+    {
+        $now = ($this->clock)();
+
+        if ($status === null || $status === '') {
+            return true;
+        }
+
+        if ($status === KeyStatus::ACTIVE) {
+            return true;
+        }
+
+        if ($status === KeyStatus::RETIRING) {
+            return $validUntil !== null && $validUntil >= $now;
+        }
+
+        return false;
     }
 
     /**
