@@ -408,7 +408,7 @@ Implementations **must** reject mismatched `X-Signature-Version` / `X-Resp-Signa
 |----------|------|
 | Test vectors | `docs/fixtures/v3/` |
 | Generator | `tools/generate-protocol-fixtures.php` |
-| PHP implementation | `src/SecurePayload.php` |
+| PHP implementation | `src/SecurePayload.php` (facade); primitives in `src/Protocol/` |
 | Conformance tests | `tests/Conformance/` |
 
 Static helpers exposed for cross-language ports:

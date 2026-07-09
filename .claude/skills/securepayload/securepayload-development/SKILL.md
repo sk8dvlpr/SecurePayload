@@ -69,12 +69,23 @@ Examples:
 - [ ] detect_changes() before commit
 ```
 
-## Touching `SecurePayload.php`
+## Touching core protocol (Phase 16 modules)
 
-The core class is ~2100 lines. Before large additions:
-- Prefer extracting private helpers over growing monolith (roadmap: refactor before Phase 9).
-- Never break public method signatures without major version plan.
-- Shared formatters: `normalizePath`, `canonicalQuery`, `hmacMessage`, `aeadNonceFrom` — change both build and verify paths together.
+The public API remains `SecurePayload` facade. Internal logic lives in modules — **edit the right module**, not the monolith:
+
+| Change type | Edit |
+|-------------|------|
+| Canonical/formatters (wire-exact) | `src/Protocol/*` — run `tests/Conformance/` + `StaticHelpersTest` |
+| Request build | `src/Client/RequestBuilder.php` |
+| Request verify / replay | `src/Server/RequestVerifier.php`, `ReplayGuard.php` |
+| Response build/verify | `src/Response/*` |
+| File transfer | `src/File/*` |
+| Constructor options / shared crypto | `src/Internal/SecurePayloadConfig.php` |
+| New public constant or method | `src/SecurePayload.php` facade only |
+
+Before editing: GitNexus `impact({target: "SymbolName", direction: "upstream"})`. For renames across modules use GitNexus `rename`, not find-replace.
+
+Never break public method signatures on `SecurePayload` without major version plan. Static helpers (`normalizePath`, `hmacMessage`, etc.) must remain callable via `SecurePayload::…` — delegate to `Protocol/`.
 
 ## Constructor Options Reference
 

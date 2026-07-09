@@ -1,6 +1,6 @@
 {
   "name": "sk8dvlpr/securepayload",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "description": "Unified client+server security helper for HMAC and AEAD (XChaCha20-Poly1305) with nonce/replay protection and canonical signing. Native PHP 8+, framework-agnostic.",
   "type": "library",
   "license": "MIT",

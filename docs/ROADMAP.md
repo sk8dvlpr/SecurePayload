@@ -27,6 +27,8 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 13 | PSR-18 HTTP transport + CLI tooling | — | ✅ Done |
 | 14 | SDK lintas bahasa (Node.js, Go) | — | ✅ Done |
 | 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | 2.8.0 | ✅ Done |
+| 16 | Refactor core (`SecurePayload.php` → modul terpisah) | 2.9.0 | ✅ Done |
+| 17 | Ekosistem & observability lanjutan | — | 📋 Planned |
 
 ---
 
@@ -134,6 +136,51 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 
 ---
 
+## Phase 16 — Refactor Core (Modularisasi Internal) ✅ Done
+
+**Tujuan:** Pecah monolith `src/SecurePayload.php` (~2.200+ baris) menjadi modul internal yang terstruktur — tanpa mengubah wire protocol v3 dan tanpa breaking public API.
+
+**Lingkup:**
+- `SecurePayload` tetap **facade** publik (`buildHeadersAndBody`, `verify`, `buildResponse`, `verifyResponse`, file/streaming, dll.)
+- Ekstraksi bertahap ke modul internal (mirror struktur Node/Go SDK):
+  - `Protocol/` — canonicalization, digest, HKDF, pesan HMAC/response
+  - `Client/` — pembangunan request
+  - `Server/` — verifikasi request + anti-replay
+  - `Response/` — build & verify response
+  - `File/` — in-memory payload + secretstream streaming
+- Static helpers publik (`normalizePath`, `hmacMessage`, `deriveKey`, …) tetap tersedia via facade atau delegasi eksplisit
+- Tidak bump `DEFAULT_VERSION`; perubahan internal saja
+
+**Prasyarat:** Phase 1–15 selesai ✅ (test vectors + conformance + SDK lintas bahasa sebagai safety net).
+
+**Verifikasi wajib:** `composer test`, `composer stan`, `tests/Conformance/`, CI `node-sdk` + `go-sdk` (interop wire tidak boleh bergeser).
+
+**Catatan:** Gunakan GitNexus `impact()` / `rename` — hindari find-replace buta pada simbol crypto.
+
+---
+
+## Phase 17 — Ekosistem & Observability Lanjutan 📋 Planned
+
+**Tujuan:** Fitur adopsi dan operasional di atas fondasi modular (Phase 16) — satu concern utama per sub-entrega/PR.
+
+**Lingkup (prioritas disarankan):**
+
+| Prioritas | Item | Keterangan |
+|-----------|------|------------|
+| Tinggi | OpenTelemetry spans | Lanjutan Phase 8/15; integrasi opsional dengan `onSecurityEvent` / modul `Observability/` |
+| Tinggi | Express/Fastify middleware (Node SDK) | Middleware server/client resmi di `packages/node-sdk` |
+| Sedang | Webhook verifier wrapper | Helper verifikasi request masuk untuk pola webhook umum |
+| Sedang | Dokumentasi mTLS + SecurePayload | Panduan deployment TLS mutual; bukan ubah wire format |
+| Rendah | RFC 9421 HTTP Message Signatures bridge | Eksplorasi interoperabilitas standar eksternal |
+| Rendah | Post-quantum hybrid signing | Penelitian; belum prioritas S2S praktis |
+| Rendah | Multipart stream (manifest + file satu request) | **Memerlukan perencanaan wire v4** — tidak masuk scope awal Phase 17 |
+
+**Prasyarat:** **Wajib** Phase 16 (refactor core) — hindari menambah fitur besar di atas monolith.
+
+**Di luar scope Phase 17 awal:** middleware Gin/Echo/Fiber (Go), Java/Kotlin SDK, perubahan `docs/PROTOCOL.md` v3.
+
+---
+
 ## Di Luar Scope (Jangan Tambahkan ke Library)
 
 - OAuth 2.0 / OIDC server
@@ -146,10 +193,10 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 ## Urutan Implementasi yang Disarankan
 
 ```
-Phase 9 → Phase 10 → Phase 11 → Phase 12 + 13 (paralel) → Phase 14 → Phase 15
+Phase 9 → … → Phase 15 → Phase 16 → Phase 17
 ```
 
-**Refactor internal** (`SecurePayload.php` → modul terpisah): disarankan **sebelum atau bersamaan** Phase 9, saat menyentuh response signing dan key rotation.
+Phase 16 (refactor internal) **wajib** sebelum menambah fitur ekosistem di Phase 17.
 
 ---
 

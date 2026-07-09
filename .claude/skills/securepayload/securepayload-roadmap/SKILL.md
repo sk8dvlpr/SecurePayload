@@ -7,27 +7,25 @@ description: SecurePayload development roadmap, phase status, priorities, and sc
 
 **Source of truth:** `docs/ROADMAP.md` — update that file when phases complete.
 
-**Current release:** 2.7.0 | **Protocol version:** 3
+**Current release:** 2.9.0 | **Protocol version:** 3
 
 ## Completed (Do Not Re-Implement)
 
-Phases 1–15 are shipped. See CHANGELOG.md v2.0.0–v2.8.0.
+Phases 1–16 are shipped. See CHANGELOG.md v2.0.0–v2.9.0.
 
 ## Next Phases (Priority Order)
 
-### Phase 14 — Cross-Language SDKs ✅
-Node.js SDK (`packages/node-sdk`) and Go SDK (`packages/go-sdk`) shipped with conformance v3 + PHP interop + CI. **Requires Phase 11** ✅.
+### Phase 16 — Refactor Core ✅
+Internal modularization: `Protocol/`, `Client/`, `Server/`, `Response/`, `File/`, `Internal/SecurePayloadConfig`. Facade `SecurePayload.php` unchanged public API; wire v3 unchanged. v2.9.0.
 
-### Phase 15 — Enterprise Ops ✅
-GCP/Azure KMS adapters + `PrometheusSecurityExporter` via `onSecurityEvent`. OpenTelemetry ditunda backlog.
+### Phase 17 — Ecosystem & Observability (Planned)
+OpenTelemetry, Express middleware, webhook wrapper, etc. **Requires Phase 16** ✅.
 
 ## Recommended Sequence
 
 ```
-9 → 10 → 11 → 12 → 13 → 14 → 15
+9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17
 ```
-
-Phase 11 complete: `docs/PROTOCOL.md`, `docs/fixtures/v3/`, `tests/Conformance/`.
 
 ## Out of Scope
 

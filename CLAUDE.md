@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `sk8dvlpr/securepayload` is a framework-agnostic PHP 8.0+ library for securing S2S / client-server HTTP requests with HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, and anti-replay protection. Distributed via Packagist; no application/runtime — it's a library consumed by other apps.
 
-**Current release:** 2.8.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
+**Current release:** 2.9.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
 
 Note: source comments, docblocks, and exception messages are written in **Indonesian**. Match that language when editing existing code so the style stays consistent.
 
@@ -33,7 +33,7 @@ Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.
 
 ## Roadmap
 
-Phases 1–15 complete (see CHANGELOG v2.0.0–v2.8.0; Phases 9–15 in bundle release). **Phase 15 complete**: GCP/Azure KMS adapters + Prometheus exporter. Full roadmap: `docs/ROADMAP.md`.
+Phases 1–16 complete (see CHANGELOG v2.0.0–v2.9.0). **Phase 16 complete**: internal modularization (facade + Protocol/Client/Server/Response/File). **Phase 17 next**: ecosystem. Full roadmap: `docs/ROADMAP.md`.
 
 ## Agent Skills
 
@@ -47,9 +47,33 @@ Phases 1–15 complete (see CHANGELOG v2.0.0–v2.8.0; Phases 9–15 in bundle r
 
 ## Architecture
 
-### Core protocol (`src/SecurePayload.php`)
+### Core protocol (facade + internal modules)
 
-One ~2100-line `final class SecurePayload` is the whole protocol. It is both the client (build/sign/encrypt) and the server (verify/decrypt) side, selected by which methods you call.
+`src/SecurePayload.php` is the **public facade** (~400 lines): `HX_*` / `EVENT_*` constants, constructor, and delegation to internal modules. Wire protocol v3 unchanged.
+
+```mermaid
+flowchart TB
+  SP[SecurePayload.php facade]
+  SP --> Protocol[Protocol/*]
+  SP --> Client[Client/RequestBuilder]
+  SP --> Server[Server/RequestVerifier + ReplayGuard]
+  SP --> Response[Response/*]
+  SP --> File[File/*]
+  Client --> Config[Internal/SecurePayloadConfig]
+  Server --> Config
+  Response --> Config
+  File --> Config
+```
+
+| Module | Role |
+|--------|------|
+| `src/Protocol/` | Static formatters: `Canonical`, `Digest`, `Messages`, `Aead`, `Hkdf` — also callable via `SecurePayload::normalizePath()` etc. |
+| `src/Internal/SecurePayloadConfig.php` | Constructor state, `deriveSubkey`, key helpers, `collectBoundHeaders`, `emitEvent` |
+| `src/Client/RequestBuilder.php` | `buildHeadersAndBody` |
+| `src/Server/RequestVerifier.php` | `verifyOrThrow` core |
+| `src/Server/ReplayGuard.php` | `checkReplay`, nonce file GC |
+| `src/Response/ResponseBuilder.php` / `ResponseVerifier.php` | Two-way response security |
+| `src/File/` | In-memory + streaming file transfer |
 
 - **Modes**: `'hmac'` (sign only), `'aead'` (encrypt only), `'both'` (encrypt + sign). Set at construction.
 - **signAlg**: `'hmac'` (default, HMAC-SHA256) or `'ed25519'` (asymmetric request signing).
@@ -72,6 +96,7 @@ Security headers are `X-Client-Id`, `X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Sig
 | 7 | 2.6 | Cloud KMS: `VaultKms`, `AwsKms` |
 | 8 | 2.7 | Observability: `onSecurityEvent`, `EVENT_*` constants |
 | 15 | 2.8 | Enterprise ops: `GcpKms`, `AzureKeyVaultKms`, `PrometheusSecurityExporter` |
+| 16 | 2.9 | Internal modularization (facade + Protocol/Client/Server/Response/File); no wire change |
 | 9 | bundle | Ed25519 response signing (mirror `signAlg`; server keypair) |
 | 10 | bundle | Key rotation + grace period (`rotateKey`, `useKeyLifecycle`) |
 
@@ -158,7 +183,7 @@ Both support `max_size`, `allowed_exts`, `block_dangerous`, `strict_mime` magic-
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SecurePayload** (1997 symbols, 5358 relationships, 165 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **SecurePayload** (2127 symbols, 5794 relationships, 176 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -9,13 +9,27 @@ description: Explains SecurePayload library architecture, execution flows, modul
 
 `sk8dvlpr/securepayload` — framework-agnostic PHP 8.0+ library for securing S2S HTTP requests: HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, anti-replay. Single class acts as **both** client and server depending on which methods are called.
 
-**Current:** library v2.7.0, protocol `DEFAULT_VERSION = '3'`.
+**Current:** library v2.9.0, protocol `DEFAULT_VERSION = '3'`.
 
 ## Module Map
 
 | Path | Role |
 |------|------|
-| `src/SecurePayload.php` | Core protocol (~2100 lines): build, verify, response, file transfer, streaming |
+| `src/SecurePayload.php` | **Public facade** (~400 lines): constants, constructor, delegation; static helpers delegate to `Protocol/` |
+| `src/Protocol/Canonical.php` | `normalizePath`, `canonicalQuery` |
+| `src/Protocol/Digest.php` | `genNonceB64`, `bodyDigestB64` |
+| `src/Protocol/Messages.php` | `hmacMessage`, `respMessage` |
+| `src/Protocol/Aead.php` | AAD builders, `aeadNonceFrom`, `respAeadNonceFrom` |
+| `src/Protocol/Hkdf.php` | `deriveKey` (HKDF-SHA256) |
+| `src/Internal/SecurePayloadConfig.php` | Constructor state + shared crypto helpers (`deriveSubkey`, keys, `collectBoundHeaders`, `emitEvent`) |
+| `src/Client/RequestBuilder.php` | `buildHeadersAndBody` |
+| `src/Server/RequestVerifier.php` | `verifyOrThrow` |
+| `src/Server/ReplayGuard.php` | Replay protection + nonce file GC |
+| `src/Response/ResponseBuilder.php` | `buildResponse` |
+| `src/Response/ResponseVerifier.php` | `verifyResponseOrThrow` |
+| `src/File/FilePayloadService.php` | In-memory file (`buildFilePayload`, `verifyFilePayload`) |
+| `src/File/FileStreamService.php` | Streaming file (secretstream) |
+| `src/File/FileValidation.php` | Extension/MIME validation helpers |
 | `src/Http/HttpTransportInterface.php` | Pluggable HTTP transport for `send()`/`sendFile()` |
 | `src/Http/CurlTransport.php` | Default cURL transport |
 | `src/Http/Psr18Transport.php` | PSR-18 transport adapter |

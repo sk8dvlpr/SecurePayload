@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace SecurePayload\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use SecurePayload\Internal\SecurePayloadConfig;
 use SecurePayload\SecurePayload;
+use SecurePayload\Server\ReplayGuard;
 
 /**
  * Extra security tests: replay, timestamp range, nonce/digest/signature errors.
@@ -332,10 +334,10 @@ final class ReplayAndSecurityTest extends TestCase
 
     public function testCleanupNonceFiles_NoFiles_ReturnsEarly(): void
     {
-        $server = new SecurePayload([
+        $config = SecurePayloadConfig::fromOptions([
             'mode' => 'hmac',
             'version' => '1',
-            'replayTtl' => 120
+            'replayTtl' => 120,
         ]);
 
         // Clean up any existing sp_ files first
@@ -349,10 +351,10 @@ final class ReplayAndSecurityTest extends TestCase
         $dummyDir = $dir . DIRECTORY_SEPARATOR . 'sp_dummy_dir';
         @mkdir($dummyDir);
 
-        $ref = new \ReflectionClass(SecurePayload::class);
+        $ref = new \ReflectionClass(ReplayGuard::class);
         $method = $ref->getMethod('cleanupNonceFiles');
         $method->setAccessible(true);
-        $method->invoke($server);
+        $method->invoke(new ReplayGuard($config));
 
         // Should return early and not crash, and skip the directory
         $this->assertTrue(true);

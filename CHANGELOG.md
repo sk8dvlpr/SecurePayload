@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.9.0] - 2026-07-10
+### Changed
+- **Refactor Core (Phase 16)** — modularisasi internal `SecurePayload.php` tanpa mengubah wire protocol v3:
+  - `src/Protocol/` — `Canonical`, `Digest`, `Messages`, `Aead`, `Hkdf` (static helpers; facade tetap delegasi via `SecurePayload::…`)
+  - `src/Internal/SecurePayloadConfig.php` — state konstruktor + helper kriptografi bersama
+  - `src/Client/RequestBuilder.php` — `buildHeadersAndBody`
+  - `src/Server/RequestVerifier.php`, `ReplayGuard.php` — verifikasi request + anti-replay
+  - `src/Response/ResponseBuilder.php`, `ResponseVerifier.php`
+  - `src/File/` — `FilePayloadService`, `FileStreamService`, `FileValidation`
+  - `src/SecurePayload.php` — facade tipis (~400 baris): konstanta publik + delegasi
+
+### Notes
+- **Tidak ada breaking change** pada API publik atau format wire v3. Framework packages tidak perlu diubah.
+
 ## [2.8.0] - 2026-07-09
 ### Added
 - **Enterprise Operations (Phase 15)** — adapter KMS multi-cloud dan exporter Prometheus:
