@@ -23,7 +23,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 9 | Ed25519 response signing (server keypair) | — | ✅ Done |
 | 10 | Key rotation + grace period | — | ✅ Done |
 | 11 | Spesifikasi protokol formal + test vectors | — | ✅ Done |
-| 12 | Framework packages resmi (Laravel, Symfony, CI4, Slim) | — | 📋 Planned |
+| 12 | Framework packages resmi (Laravel, Symfony, CI4, Slim) | — | ✅ Done |
 | 13 | PSR-18 HTTP transport + CLI tooling | — | 📋 Planned |
 | 14 | SDK lintas bahasa (Node.js, Go) | — | 📋 Planned |
 | 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | — | 📋 Planned |
@@ -69,14 +69,17 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 
 ---
 
-## Phase 12 — Framework Packages Resmi
+## Phase 12 — Framework Packages Resmi ✅ Done
 
 **Tujuan:** Turunkan friction adopsi; `examples/` → package Composer terpisah.
 
-**Lingkup:**
-- `securepayload/laravel` — service provider, middleware, artisan keys
-- `securepayload/symfony`, `securepayload/ci4`, `securepayload/slim`
-- Publish config, env template
+**Diimplementasikan:**
+- Monorepo `packages/`: `sk8dvlpr/securepayload-laravel`, `-symfony`, `-ci4`, `-slim`
+- `SecurePayloadFactory` per framework (server/client, protocol v3 default)
+- Server: Laravel middleware, Symfony subscriber, CI4 filter, Slim PSR-15 middleware
+- Client: outgoing HTTP wrapper per framework
+- Laravel: `securepayload:generate-keys`, `securepayload:rotate-key` Artisan commands
+- Config publish / env template; CI matrix job untuk package tests
 
 **Prasyarat:** Core library stabil (Phase 9–10 selesai atau frozen).
 

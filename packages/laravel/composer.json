@@ -1,0 +1,44 @@
+{
+  "name": "sk8dvlpr/securepayload-laravel",
+  "description": "Laravel integration for sk8dvlpr/securepayload — middleware, client service, Artisan key commands.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [{ "name": "sk8dvlpr" }],
+  "require": {
+    "php": ">=8.0",
+    "illuminate/support": "^9.0|^10.0|^11.0",
+    "illuminate/http": "^9.0|^10.0|^11.0",
+    "sk8dvlpr/securepayload": "^2.7"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^7.0|^8.0|^9.0",
+    "phpunit/phpunit": "^9.6 || ^10.5",
+    "phpstan/phpstan": "^1.11"
+  },
+  "autoload": {
+    "psr-4": {
+      "SecurePayload\\Laravel\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SecurePayload\\Laravel\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "SecurePayload\\Laravel\\SecurePayloadServiceProvider"
+      ]
+    }
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../..",
+      "options": { "symlink": true }
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

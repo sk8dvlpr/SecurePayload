@@ -22,7 +22,7 @@ Library: `sk8dvlpr/securepayload` v2.7.0 | Protocol version: `3`
 
 ## Roadmap
 
-Phases 1–11 done. Next: Phase 12 (framework packages). Full plan: `docs/ROADMAP.md`
+Phases 1–12 done. Next: Phase 13 (PSR-18 transport + CLI). Full plan: `docs/ROADMAP.md`
 
 ## SecurePayload Skills
 

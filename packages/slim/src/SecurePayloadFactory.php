@@ -1,0 +1,164 @@
+<?php
+declare(strict_types=1);
+
+namespace SecurePayload\Slim;
+
+use PDO;
+use SecurePayload\KMS\DbKeyProvider;
+use SecurePayload\KMS\EnvKeyProvider;
+use SecurePayload\SecurePayload;
+
+final class SecurePayloadFactory
+{
+    public const REQUEST_ATTRIBUTE = 'securepayload';
+
+    /**
+     * @param array<string,mixed> $config
+     */
+    public static function createServer(array $config, ?PDO $pdo = null): SecurePayload
+    {
+        $opts = self::baseOptions($config);
+        $opts['keyLoader'] = self::buildKeyLoader($config, $pdo);
+
+        return new SecurePayload($opts);
+    }
+
+    /**
+     * @param array<string,mixed> $config
+     */
+    public static function createClient(array $config): SecurePayload
+    {
+        $client = $config['client'] ?? [];
+        $opts = self::baseOptions($config);
+        $opts['clientId'] = (string) ($client['client_id'] ?? '');
+        $opts['keyId'] = (string) ($client['key_id'] ?? '');
+        $opts['hmacSecretRaw'] = self::resolveHmacSecret($client);
+        $aead = (string) ($client['aead_key_b64'] ?? '');
+        if ($aead !== '') {
+            $opts['aeadKeyB64'] = $aead;
+        }
+        $edSk = (string) ($client['ed25519_secret_b64'] ?? '');
+        if ($edSk !== '') {
+            $opts['ed25519SecretKeyB64'] = $edSk;
+        }
+        $edPkSrv = (string) ($client['ed25519_public_server_b64'] ?? '');
+        if ($edPkSrv !== '') {
+            $opts['ed25519PublicKeyServerB64'] = $edPkSrv;
+        }
+
+        return new SecurePayload($opts);
+    }
+
+    /**
+     * @param array<string, array<int, string>> $headers
+     * @return array<string, string>
+     */
+    public static function normalizeHeaders(array $headers): array
+    {
+        $out = [];
+        foreach ($headers as $k => $vals) {
+            $out[strtoupper((string) $k)] = implode(',', $vals);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function defaultConfig(): array
+    {
+        return [
+            'mode' => getenv('SECUREPAYLOAD_MODE') ?: 'both',
+            'version' => getenv('SECUREPAYLOAD_VERSION') ?: SecurePayload::DEFAULT_VERSION,
+            'sign_alg' => getenv('SECUREPAYLOAD_SIGN_ALG') ?: 'hmac',
+            'derive_keys' => (bool) (getenv('SECUREPAYLOAD_DERIVE_KEYS') ?: false),
+            'bind_headers' => [],
+            'replay_ttl' => (int) (getenv('SECUREPAYLOAD_REPLAY_TTL') ?: 120),
+            'clock_skew' => (int) (getenv('SECUREPAYLOAD_CLOCK_SKEW') ?: 60),
+            'server' => [
+                'key_provider' => getenv('SECUREPAYLOAD_SERVER_KEY_PROVIDER') ?: 'env',
+                'db' => [
+                    'table' => getenv('SECUREPAYLOAD_KEYS_TABLE') ?: 'secure_keys',
+                    'use_key_lifecycle' => (bool) (getenv('SECUREPAYLOAD_USE_KEY_LIFECYCLE') ?: false),
+                    'use_ed25519' => (bool) (getenv('SECUREPAYLOAD_USE_ED25519') ?: false),
+                    'use_ed25519_server' => (bool) (getenv('SECUREPAYLOAD_USE_ED25519_SERVER') ?: false),
+                ],
+            ],
+            'client' => [
+                'base_url' => getenv('SECUREPAYLOAD_BASE_URL') ?: '',
+                'client_id' => getenv('SECUREPAYLOAD_CLIENT_ID') ?: '',
+                'key_id' => getenv('SECUREPAYLOAD_KEY_ID') ?: '',
+                'hmac_secret' => getenv('SECUREPAYLOAD_HMAC_SECRET') ?: '',
+                'hmac_secret_is_hex' => (bool) (getenv('SECUREPAYLOAD_HMAC_SECRET_IS_HEX') ?: false),
+                'aead_key_b64' => getenv('SECUREPAYLOAD_AEAD_KEY_B64') ?: '',
+                'ed25519_secret_b64' => getenv('SECUREPAYLOAD_ED25519_SECRET_B64') ?: '',
+                'ed25519_public_server_b64' => getenv('SECUREPAYLOAD_ED25519_PUBLIC_SERVER_B64') ?: '',
+            ],
+            'replay_store' => ['driver' => getenv('SECUREPAYLOAD_REPLAY_DRIVER') ?: 'file'],
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $config
+     * @return array<string, mixed>
+     */
+    private static function baseOptions(array $config): array
+    {
+        return [
+            'mode' => (string) ($config['mode'] ?? 'both'),
+            'version' => (string) ($config['version'] ?? SecurePayload::DEFAULT_VERSION),
+            'signAlg' => (string) ($config['sign_alg'] ?? 'hmac'),
+            'deriveKeys' => !empty($config['derive_keys']),
+            'bindHeaders' => is_array($config['bind_headers'] ?? null) ? $config['bind_headers'] : [],
+            'replayTtl' => (int) ($config['replay_ttl'] ?? 120),
+            'clockSkew' => (int) ($config['clock_skew'] ?? 60),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $config
+     */
+    private static function buildKeyLoader(array $config, ?PDO $pdo): callable
+    {
+        $server = $config['server'] ?? [];
+        $provider = (string) ($server['key_provider'] ?? 'env');
+
+        if ($provider === 'db') {
+            if ($pdo === null) {
+                throw new \InvalidArgumentException('PDO diperlukan untuk key_provider=db');
+            }
+            $db = $server['db'] ?? [];
+            $dbProvider = new DbKeyProvider($pdo, [
+                'table' => $db['table'] ?? 'secure_keys',
+                'useKeyLifecycle' => !empty($db['use_key_lifecycle']),
+                'useEd25519' => !empty($db['use_ed25519']),
+                'useEd25519Server' => !empty($db['use_ed25519_server']),
+            ]);
+
+            return static fn (string $cid, string $kid): array => $dbProvider->load($cid, $kid);
+        }
+
+        $envProvider = new EnvKeyProvider();
+
+        return static fn (string $cid, string $kid): array => $envProvider->load($cid, $kid);
+    }
+
+    /**
+     * @param array<string,mixed> $client
+     */
+    private static function resolveHmacSecret(array $client): ?string
+    {
+        $secret = (string) ($client['hmac_secret'] ?? '');
+        if ($secret === '') {
+            return null;
+        }
+        if (!empty($client['hmac_secret_is_hex'])) {
+            $bin = hex2bin($secret);
+
+            return $bin !== false ? $bin : $secret;
+        }
+
+        return $secret;
+    }
+}

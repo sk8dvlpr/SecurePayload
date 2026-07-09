@@ -1,0 +1,46 @@
+{
+  "name": "sk8dvlpr/securepayload-symfony",
+  "description": "Symfony integration for sk8dvlpr/securepayload — bundle, event subscriber, HTTP client service.",
+  "type": "symfony-bundle",
+  "license": "MIT",
+  "authors": [{ "name": "sk8dvlpr" }],
+  "require": {
+    "php": ">=8.0",
+    "symfony/config": "^5.4|^6.4|^7.0",
+    "symfony/dependency-injection": "^5.4|^6.4|^7.0",
+    "symfony/http-kernel": "^5.4|^6.4|^7.0",
+    "symfony/http-foundation": "^5.4|^6.4|^7.0",
+    "symfony/http-client": "^5.4|^6.4|^7.0",
+    "symfony/yaml": "^5.4|^6.4|^7.0",
+    "sk8dvlpr/securepayload": "^2.7"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6 || ^10.5",
+    "phpstan/phpstan": "^1.11"
+  },
+  "autoload": {
+    "psr-4": {
+      "SecurePayload\\Symfony\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SecurePayload\\Symfony\\Tests\\": "tests/"
+    }
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../..",
+      "options": { "symlink": true }
+    }
+  ],
+  "extra": {
+    "symfony": {
+      "allow-contrib": false,
+      "bundle": "SecurePayload\\Symfony\\SecurePayloadBundle"
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

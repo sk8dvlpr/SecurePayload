@@ -1,0 +1,42 @@
+{
+  "name": "sk8dvlpr/securepayload-slim",
+  "description": "Slim 4 integration for sk8dvlpr/securepayload — PSR-15 middleware and HTTP client.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [{ "name": "sk8dvlpr" }],
+  "require": {
+    "php": ">=8.0",
+    "slim/slim": "^4.12",
+    "psr/http-server-middleware": "^1.0",
+    "psr/http-client": "^1.0",
+    "psr/http-factory": "^1.0",
+    "sk8dvlpr/securepayload": "^2.7"
+  },
+  "suggest": {
+    "guzzlehttp/guzzle": "PSR-18 client implementation"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6 || ^10.5",
+    "slim/psr7": "^1.6",
+    "phpstan/phpstan": "^1.11"
+  },
+  "autoload": {
+    "psr-4": {
+      "SecurePayload\\Slim\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SecurePayload\\Slim\\Tests\\": "tests/"
+    }
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../..",
+      "options": { "symlink": true }
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

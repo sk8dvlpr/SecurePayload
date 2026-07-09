@@ -30,3 +30,28 @@ jobs:
         run: vendor/bin/phpstan analyse -c phpstan.neon
       - name: Run tests
         run: vendor/bin/phpunit
+
+  packages:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [laravel, symfony, ci4, slim]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: sodium, curl, json, mbstring
+          coverage: none
+      - name: Install core dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Install package dependencies
+        working-directory: packages/${{ matrix.package }}
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Run package tests
+        working-directory: packages/${{ matrix.package }}
+        run: vendor/bin/phpunit -c phpunit.xml.dist
+      - name: Static Analysis (PHPStan)
+        working-directory: packages/${{ matrix.package }}
+        run: vendor/bin/phpstan analyse -c phpstan.neon

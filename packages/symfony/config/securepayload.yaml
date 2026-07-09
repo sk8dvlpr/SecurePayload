@@ -1,0 +1,27 @@
+securepayload:
+    mode: '%env(default:both:SECUREPAYLOAD_MODE)%'
+    version: '%env(default:3:SECUREPAYLOAD_VERSION)%'
+    sign_alg: '%env(default:hmac:SECUREPAYLOAD_SIGN_ALG)%'
+    derive_keys: false
+    replay_ttl: 120
+    clock_skew: 60
+    bind_headers: []
+    server:
+        key_provider: '%env(default:env:SECUREPAYLOAD_SERVER_KEY_PROVIDER)%'
+        pdo_service: null
+        db:
+            table: secure_keys
+            use_key_lifecycle: false
+            use_ed25519: false
+            use_ed25519_server: false
+    client:
+        base_url: '%env(default::SECUREPAYLOAD_BASE_URL)%'
+        client_id: '%env(default::SECUREPAYLOAD_CLIENT_ID)%'
+        key_id: '%env(default::SECUREPAYLOAD_KEY_ID)%'
+        hmac_secret: '%env(default::SECUREPAYLOAD_HMAC_SECRET)%'
+        hmac_secret_is_hex: false
+        aead_key_b64: '%env(default::SECUREPAYLOAD_AEAD_KEY_B64)%'
+        ed25519_secret_b64: '%env(default::SECUREPAYLOAD_ED25519_SECRET_B64)%'
+        ed25519_public_server_b64: '%env(default::SECUREPAYLOAD_ED25519_PUBLIC_SERVER_B64)%'
+    replay_store:
+        driver: file

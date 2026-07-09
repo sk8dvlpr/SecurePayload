@@ -1,0 +1,11 @@
+parameters:
+  level: 5
+  paths:
+    - src
+  bootstrapFiles:
+    - vendor/autoload.php
+  treatPhpDocTypesAsCertain: false
+  ignoreErrors:
+    - '#Function (config|service) not found#'
+    - '#class Config\\(Database|Services)#'
+    - '#property CodeIgniter\\HTTP\\RequestInterface::\$securepayload#'

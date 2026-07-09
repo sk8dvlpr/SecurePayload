@@ -11,12 +11,9 @@ description: SecurePayload development roadmap, phase status, priorities, and sc
 
 ## Completed (Do Not Re-Implement)
 
-Phases 1–11 are shipped. See CHANGELOG.md v2.0.0–v2.7.0; Phases 9–11 documented in ROADMAP (bundle release pending).
+Phases 1–12 are shipped. See CHANGELOG.md v2.0.0–v2.7.0; Phases 9–12 documented in ROADMAP (bundle release pending).
 
 ## Next Phases (Priority Order)
-
-### Phase 12 — Framework Packages 📋
-Composer packages from `examples/` (Laravel, Symfony, CI4, Slim).
 
 ### Phase 13 — PSR-18 Transport + CLI 📋
 Decouple `send()` from cURL; `securepayload` CLI for keys/debug.
@@ -30,7 +27,7 @@ GCP/Azure KMS, Prometheus metrics via `onSecurityEvent`.
 ## Recommended Sequence
 
 ```
-9 → 10 → 11 → (12 ∥ 13) → 14 → 15
+9 → 10 → 11 → 12 → (13 ∥ 14 prep) → 14 → 15
 ```
 
 Phase 11 complete: `docs/PROTOCOL.md`, `docs/fixtures/v3/`, `tests/Conformance/`.

@@ -98,7 +98,20 @@ use SecurePayload\ReplayStore\Psr16ReplayStore;
 
 Check `isAtomic()` — non-atomic caches have race window under high concurrency.
 
-## Framework Examples
+## Framework Packages (Phase 12 — preferred)
+
+| Framework | Package | Install |
+|-----------|---------|---------|
+| Laravel | `sk8dvlpr/securepayload-laravel` | `composer require sk8dvlpr/securepayload-laravel` |
+| Symfony | `sk8dvlpr/securepayload-symfony` | `composer require sk8dvlpr/securepayload-symfony` |
+| CI4 | `sk8dvlpr/securepayload-ci4` | `composer require sk8dvlpr/securepayload-ci4` |
+| Slim | `sk8dvlpr/securepayload-slim` | `composer require sk8dvlpr/securepayload-slim` |
+
+Monorepo path: `packages/{laravel,symfony,ci4,slim}/`. Each ships `SecurePayloadFactory`, server middleware/filter/subscriber, and client service. Laravel adds `securepayload:generate-keys` and `securepayload:rotate-key` Artisan commands.
+
+**Lumen:** use `securepayload-laravel` with manual bootstrap (no auto-discovery).
+
+## Framework Examples (legacy reference)
 
 | Framework | Server | Client |
 |-----------|--------|--------|
@@ -109,7 +122,7 @@ Check `isAtomic()` — non-atomic caches have race window under high concurrency
 | Slim | `examples/slim/SecurePayloadMiddleware.php` | `SecurePayloadClient.php` |
 | Native | `examples/native/index.php` | `sender.php` |
 
-Full index: `examples/EXAMPLES.md`.
+Full index: `examples/EXAMPLES.md` (deprecation notice → use packages above).
 
 ## Middleware Pattern
 

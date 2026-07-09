@@ -1,5 +1,6 @@
 # --- Composer (library) ---
 /vendor/
+/packages/*/vendor/
 /composer.phar
 /composer.lock   # NOTE: ignore for libraries. For applications, commit this file.
 
@@ -24,6 +25,7 @@
 /*.log
 /.phpunit.result.cache
 /.phpunit.cache/
+**/.phpunit.result.cache
 /.php-cache/
 /.php-cs-fixer.cache
 /.phpcs-cache

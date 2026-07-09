@@ -1,5 +1,7 @@
 # Dokumentasi Contoh Integrasi SecurePayload
 
+> **Phase 12:** Gunakan package resmi di `packages/` (`composer require sk8dvlpr/securepayload-laravel`, dll.). Folder `examples/` tetap sebagai referensi legacy.
+
 Folder ini berisi contoh implementasi library **SecurePayload** di berbagai framework PHP populer dan Native PHP. Setiap sub-folder mencakup contoh kode untuk dua sisi komunikasi:
 
 1.  **PENERIMA (Server/Receiver)**: Middleware atau Filter untuk memvalidasi request yang masuk.
