@@ -6,6 +6,8 @@ namespace SecurePayload;
 
 use RuntimeException;
 use SecurePayload\Exceptions\SecurePayloadException;
+use SecurePayload\Http\CurlTransport;
+use SecurePayload\Http\HttpTransportInterface;
 
 /**
  * SecurePayload
@@ -170,6 +172,9 @@ final class SecurePayload
     /** @var callable(): string */
     private $respNonceGenerator;
 
+    /** @var HttpTransportInterface|callable():HttpTransportInterface|null Transport HTTP untuk send()/sendFile() */
+    private $httpTransport;
+
     /**
      * Konstruktor SecurePayload
      *
@@ -215,6 +220,8 @@ final class SecurePayload
      * - clock: Callable unix timestamp acuan (Default: time()). Dipakai verifikasi timestamp.
      * - nonceGenerator: Callable nonce request base64 (Default: genNonceB64()).
      * - respNonceGenerator: Callable nonce response base64 (Default: genNonceB64()).
+     * - httpTransport: HttpTransportInterface atau callable factory untuk pengiriman HTTP
+     *                  pada send()/sendFile(). Default: CurlTransport jika ext-curl tersedia.
      *
      * @param array{
      *   mode?: 'hmac'|'aead'|'both',
@@ -236,7 +243,8 @@ final class SecurePayload
      *   onSecurityEvent?: callable|null,
      *   clock?: callable|null,
      *   nonceGenerator?: callable|null,
-     *   respNonceGenerator?: callable|null
+     *   respNonceGenerator?: callable|null,
+     *   httpTransport?: HttpTransportInterface|callable():HttpTransportInterface|null
      * } $opts
      * @throws SecurePayloadException Jika konfigurasi tidak valid
      */
@@ -285,6 +293,15 @@ final class SecurePayload
         $this->clock = $opts['clock'] ?? static fn (): int => time();
         $this->nonceGenerator = $opts['nonceGenerator'] ?? static fn (): string => self::genNonceB64();
         $this->respNonceGenerator = $opts['respNonceGenerator'] ?? static fn (): string => self::genNonceB64();
+
+        $transport = $opts['httpTransport'] ?? null;
+        if ($transport !== null && !$transport instanceof HttpTransportInterface && !is_callable($transport)) {
+            throw new SecurePayloadException(
+                'httpTransport harus HttpTransportInterface atau callable factory',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
+        $this->httpTransport = $transport;
 
         if (!in_array($this->mode, ['hmac', 'aead', 'both'], true)) {
             throw new SecurePayloadException('Mode tidak valid: ' . $this->mode, SecurePayloadException::BAD_REQUEST);
@@ -479,66 +496,47 @@ final class SecurePayload
     }
 
     /**
-     * Mengeksekusi HTTP request via cURL.
+     * Mengirim HTTP request via transport yang dikonfigurasi.
      *
-     * @param string $url URL tujuan.
-     * @param string $method HTTP method (GET, POST, dll).
-     * @param string $body Body request yang sudah diproses.
-     * @param array<string,string> $headers Security headers + extra headers.
+     * @param array<string,string> $headers
      *
      * @return array{status:int, headers:array<string,string>, body:mixed, error:?string}
      */
-    private function executeCurl(string $url, string $method, string $body, array $headers): array
+    private function executeHttp(string $url, string $method, string $body, array $headers): array
     {
-        if (!extension_loaded('curl')) {
-            throw new SecurePayloadException('Ekstensi cURL diperlukan', SecurePayloadException::SERVER_ERROR);
+        return $this->resolveHttpTransport()->send($url, $method, $body, $headers);
+    }
+
+    private function resolveHttpTransport(): HttpTransportInterface
+    {
+        if ($this->httpTransport instanceof HttpTransportInterface) {
+            return $this->httpTransport;
         }
 
-        $outHeaders = [];
-        foreach ($headers as $k => $v) {
-            $outHeaders[] = $k . ': ' . $v;
-        }
-        $outHeaders[] = 'Content-Type: application/json';
-
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $outHeaders);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HEADER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-
-        $resp = curl_exec($ch);
-        $err = $resp === false ? curl_error($ch) : null;
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        curl_close($ch);
-
-        $rawHeaders = substr((string) $resp, 0, $headerSize);
-        $bodyStr = substr((string) $resp, $headerSize);
-
-        $respHeaders = [];
-        foreach (preg_split("/\r?\n/", $rawHeaders) as $line) {
-            if (strpos($line, ':') !== false) {
-                [$hk, $hv] = array_map('trim', explode(':', $line, 2));
-                if ($hk !== '') {
-                    $respHeaders[$hk] = $hv;
-                }
+        if (is_callable($this->httpTransport)) {
+            $transport = ($this->httpTransport)();
+            if (!$transport instanceof HttpTransportInterface) {
+                throw new SecurePayloadException(
+                    'Factory httpTransport harus mengembalikan HttpTransportInterface',
+                    SecurePayloadException::SERVER_ERROR
+                );
             }
+
+            return $transport;
         }
 
-        $json = json_decode($bodyStr, true);
-        return [
-            'status' => $code,
-            'headers' => $respHeaders,
-            'body' => $json !== null ? $json : $bodyStr,
-            'error' => $err,
-        ];
+        if (extension_loaded('curl')) {
+            return new CurlTransport();
+        }
+
+        throw new SecurePayloadException(
+            'HTTP transport tidak tersedia. Set opsi httpTransport atau pasang ext-curl.',
+            SecurePayloadException::SERVER_ERROR
+        );
     }
 
     /**
-     * Mengirim Request HTTP secara Sederhana (Helper Wrapper cURL).
+     * Mengirim Request HTTP secara Sederhana (helper client).
      *
      * @param string $url URL Tujuan
      * @param string $method HTTP Method
@@ -550,7 +548,7 @@ final class SecurePayload
     public function send(string $url, string $method, array $payload, array $extraHeaders = []): array
     {
         [$headers, $body] = $this->buildHeadersAndBody($url, $method, $payload, $extraHeaders);
-        return $this->executeCurl($url, $method, $body, array_merge($headers, $extraHeaders));
+        return $this->executeHttp($url, $method, $body, array_merge($headers, $extraHeaders));
     }
 
     /**
@@ -632,7 +630,7 @@ final class SecurePayload
     public function sendFile(string $url, string $method, string $filePath, array $data = [], ?string $customFileName = null, array $extraHeaders = []): array
     {
         [$headers, $body] = $this->buildFilePayload($url, $method, $filePath, $data, $customFileName, $extraHeaders);
-        return $this->executeCurl($url, $method, $body, array_merge($headers, $extraHeaders));
+        return $this->executeHttp($url, $method, $body, array_merge($headers, $extraHeaders));
     }
 
     /**

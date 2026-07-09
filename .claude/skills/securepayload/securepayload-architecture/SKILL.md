@@ -16,6 +16,9 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | Path | Role |
 |------|------|
 | `src/SecurePayload.php` | Core protocol (~2100 lines): build, verify, response, file transfer, streaming |
+| `src/Http/HttpTransportInterface.php` | Pluggable HTTP transport for `send()`/`sendFile()` |
+| `src/Http/CurlTransport.php` | Default cURL transport |
+| `src/Http/Psr18Transport.php` | PSR-18 transport adapter |
 | `src/Exceptions/SecurePayloadException.php` | HTTP-style errors (400/401/422/500) + `context` |
 | `src/KMS/Kms.php` | Key-wrapping interface (`wrap`/`unwrap`) |
 | `src/KMS/LocalKms.php` | XChaCha20 KEK wrapping from env |
@@ -27,7 +30,8 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `src/KMS/KeyStatus.php` | Lifecycle constants: `active`, `retiring`, `revoked` |
 | `src/KMS/SecureKeyProvider.php` | Provider interface |
 | `src/ReplayStore/Psr16ReplayStore.php` | PSR-16 → `replayStore` callable |
-| `examples/` | Framework integration patterns (not autoloaded) |
+| `examples/` | Framework integration patterns (legacy reference) |
+| `packages/` | Official framework packages + `securepayload-cli` |
 | `tests/Unit/` | Unit tests |
 | `tests/Integration/` | Round-trip tests |
 | `tests/Security/` | Security regression (spoofing, replay, downgrade, AAD) |
@@ -58,7 +62,7 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | Method | Purpose |
 |--------|---------|
 | `buildHeadersAndBody($url, $method, $payload, $extraHeaders?)` | Core: headers + processed body |
-| `send($url, $method, $payload, $extraHeaders?)` | cURL wrapper |
+| `send($url, $method, $payload, $extraHeaders?)` | HTTP via `httpTransport` or CurlTransport fallback |
 | `buildFilePayload()` / `sendFile()` | In-memory file (base64 in JSON, ≤ ~10MB) |
 | `buildFileStream()` | Large file: secretstream per-chunk + manifest |
 | `verifyResponse()` / `verifyResponseOrThrow()` | Verify server response |

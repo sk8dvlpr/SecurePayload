@@ -111,6 +111,35 @@ Monorepo path: `packages/{laravel,symfony,ci4,slim}/`. Each ships `SecurePayload
 
 **Lumen:** use `securepayload-laravel` with manual bootstrap (no auto-discovery).
 
+## HTTP Transport (Phase 13)
+
+| Transport | Use |
+|-----------|-----|
+| `CurlTransport` | Default fallback when `ext-curl` available |
+| `Psr18Transport` | Inject PSR-18 `ClientInterface` + factories |
+| Custom | Implement `HttpTransportInterface`, pass as `httpTransport` opt |
+
+```php
+use SecurePayload\Http\Psr18Transport;
+
+$client = new SecurePayload([
+    // ...keys...
+    'httpTransport' => new Psr18Transport($httpClient, $requestFactory, $streamFactory),
+]);
+```
+
+## CLI (`sk8dvlpr/securepayload-cli`)
+
+```bash
+composer global require sk8dvlpr/securepayload-cli
+securepayload keys:generate client-a key-v1
+securepayload keys:rotate client-a key-v1 --grace=86400
+securepayload debug:verify -H headers.json -b @body.json --method=POST --path=/v1/pay
+securepayload test:roundtrip --mode=both
+```
+
+Package path: `packages/cli/`.
+
 ## Framework Examples (legacy reference)
 
 | Framework | Server | Client |

@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [laravel, symfony, ci4, slim]
+        package: [laravel, symfony, ci4, slim, cli]
     steps:
       - uses: actions/checkout@v4
       - name: Setup PHP

@@ -70,7 +70,8 @@ composer require sk8dvlpr/securepayload
 - PHP **8.0** atau lebih baru.
 - Ekstensi `ext-json`, `ext-hash` (wajib).
 - Ekstensi `ext-sodium` (wajib **hanya** untuk mode `aead`/`both`).
-- Ekstensi `ext-curl` (opsional, hanya jika memakai helper `send()`/`sendFile()`).
+- Ekstensi `ext-curl` (opsional, fallback default untuk `send()`/`sendFile()` jika `httpTransport` tidak diset).
+- `psr/http-client` + `psr/http-factory` (opsional, untuk `SecurePayload\Http\Psr18Transport`).
 
 ---
 
@@ -125,17 +126,37 @@ $payload = ['user_id' => 123, 'action' => 'debit', 'amount' => 50000];
 // $response = $guzzle->post($url, ['headers' => $headers, 'body' => $body]);
 ```
 
-### Helper cURL bawaan (`send`)
+### Helper `send()` (cURL atau PSR-18)
 
-Jika ekstensi `curl` tersedia, Anda bisa langsung mengirim tanpa HTTP client tambahan:
+`send()` / `sendFile()` memakai `HttpTransportInterface`. Default: `CurlTransport` jika `ext-curl` tersedia. Atau injek transport PSR-18:
 
 ```php
-$res = $client->send($url, 'POST', $payload);
+use SecurePayload\Http\Psr18Transport;
 
+$transport = new Psr18Transport($psr18Client, $requestFactory, $streamFactory);
+$client = new SecurePayload([
+    // ... kunci client ...
+    'httpTransport' => $transport,
+]);
+
+$res = $client->send($url, 'POST', $payload);
 // $res = ['status' => int, 'headers' => array, 'body' => mixed, 'error' => ?string]
-echo $res['status'];
-print_r($res['body']);
 ```
+
+Tanpa cURL maupun `httpTransport`, `send()` melempar exception yang jelas.
+
+### CLI operasional (`securepayload-cli`)
+
+```bash
+composer global require sk8dvlpr/securepayload-cli
+
+securepayload keys:generate client-a key-v1
+securepayload keys:rotate client-a key-v1 --grace=86400
+securepayload debug:verify -H headers.json -b @body.json --method=POST --path=/v1/pay
+securepayload test:roundtrip --mode=both
+```
+
+Package: [`packages/cli`](packages/cli/). Framework packages: [`packages/`](packages/).
 
 ### Mengirim file
 

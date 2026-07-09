@@ -16,7 +16,9 @@
   },
   "suggest": {
     "ext-sodium": "Required for AEAD (XChaCha20-Poly1305) mode",
-    "ext-curl": "Required if you use the send() helper",
+    "ext-curl": "Required for default CurlTransport fallback in send()/sendFile()",
+    "psr/http-client": "Required for SecurePayload\\Http\\Psr18Transport",
+    "psr/http-factory": "Required for SecurePayload\\Http\\Psr18Transport",
     "psr/simple-cache": "Required only if you use Psr16ReplayStore to back replay protection with a PSR-16 cache",
     "aws/aws-sdk-php": "Required only if you use AwsKms to wrap/unwrap keys via AWS KMS"
   },
@@ -33,7 +35,10 @@
   "require-dev": {
     "phpunit/phpunit": "^9.6 || ^10.5",
     "phpstan/phpstan": "^1.11",
-    "psr/simple-cache": "^1.0 || ^2.0 || ^3.0"
+    "psr/simple-cache": "^1.0 || ^2.0 || ^3.0",
+    "psr/http-client": "^1.0",
+    "psr/http-factory": "^1.0",
+    "psr/http-message": "^1.1|^2.0"
   },
   "scripts": {
     "test": "vendor/bin/phpunit",

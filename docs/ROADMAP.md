@@ -24,7 +24,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 10 | Key rotation + grace period | — | ✅ Done |
 | 11 | Spesifikasi protokol formal + test vectors | — | ✅ Done |
 | 12 | Framework packages resmi (Laravel, Symfony, CI4, Slim) | — | ✅ Done |
-| 13 | PSR-18 HTTP transport + CLI tooling | — | 📋 Planned |
+| 13 | PSR-18 HTTP transport + CLI tooling | — | ✅ Done |
 | 14 | SDK lintas bahasa (Node.js, Go) | — | 📋 Planned |
 | 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | — | 📋 Planned |
 
@@ -85,13 +85,15 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 
 ---
 
-## Phase 13 — PSR-18 Transport + CLI
+## Phase 13 — PSR-18 Transport + CLI ✅ Done
 
 **Tujuan:** Lepas ketergantungan `send()` pada cURL; tooling operasional.
 
-**Lingkup:**
-- Interface transport / PSR-18 `ClientInterface`
-- Binary `securepayload` CLI: `keys:generate`, `debug:verify`, `test:roundtrip`
+**Diimplementasikan:**
+- `src/Http/`: `HttpTransportInterface`, `CurlTransport`, `Psr18Transport`
+- Opsi konstruktor `httpTransport` (instance atau callable factory); fallback `CurlTransport`
+- Package `sk8dvlpr/securepayload-cli`: `keys:generate`, `keys:rotate`, `debug:verify`, `test:roundtrip`
+- CI matrix job untuk `packages/cli`
 
 **Prasyarat:** Tidak blocking fitur keamanan.
 

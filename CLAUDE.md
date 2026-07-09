@@ -33,7 +33,7 @@ Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.
 
 ## Roadmap
 
-Phases 1–12 complete (see CHANGELOG v2.0.0–v2.7.0; Phases 9–12 in bundle release). Next planned: **Phase 13** (PSR-18 transport + CLI). Full roadmap: `docs/ROADMAP.md`.
+Phases 1–13 complete (see CHANGELOG v2.0.0–v2.7.0; Phases 9–13 in bundle release). Next planned: **Phase 14** (cross-language SDKs). Full roadmap: `docs/ROADMAP.md`.
 
 ## Agent Skills
 
@@ -53,7 +53,7 @@ One ~2100-line `final class SecurePayload` is the whole protocol. It is both the
 
 - **Modes**: `'hmac'` (sign only), `'aead'` (encrypt only), `'both'` (encrypt + sign). Set at construction.
 - **signAlg**: `'hmac'` (default, HMAC-SHA256) or `'ed25519'` (asymmetric request signing).
-- **Client entry points**: `buildHeadersAndBody()` (core), `send()` (cURL wrapper), `buildFilePayload()`/`sendFile()` (in-memory file), `buildFileStream()` (large file streaming), `verifyResponse()`/`verifyResponseOrThrow()`.
+- **Client entry points**: `buildHeadersAndBody()` (core), `send()`/`sendFile()` (pluggable HTTP transport), `buildFilePayload()` (in-memory file), `buildFileStream()` (large file streaming), `verifyResponse()`/`verifyResponseOrThrow()`.
 - **Server entry points**: `verify()` (safe, returns `['ok'=>bool, ...]`), `verifyOrThrow()`, `verifySimple()`, `verifyFilePayload()`, `verifyFileStream()`, `buildResponse()`.
 
 Security headers are `X-Client-Id`, `X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature-*`, `X-Body-Digest`, `X-Canonical-Request`, `X-AEAD-*` (the `HX_*` constants). Response uses `X-Resp-*` namespace.
@@ -148,7 +148,7 @@ Both support `max_size`, `allowed_exts`, `block_dangerous`, `strict_mime` magic-
 - `declare(strict_types=1)` everywhere; classes are `final`.
 - Errors throw `SecurePayloadException` carrying an HTTP-style code (`BAD_REQUEST` 400, `UNAUTHORIZED` 401, `UNPROCESSABLE` 422, `SERVER_ERROR` 500) and a `context` array surfaced in `verify()`'s `debug` field.
 - `ext-sodium` is a soft dependency (`suggest`, guarded by `ensureSodium()`) — only required for `aead`/`both` modes. Keep HMAC-only paths working without it.
-- Framework packages (Laravel, Symfony, CI4, Slim) live in `packages/` (`sk8dvlpr/securepayload-*`). Legacy integration examples remain in `examples/` as reference.
+- Framework packages (Laravel, Symfony, CI4, Slim) and CLI (`securepayload-cli`) live in `packages/`. Legacy integration examples remain in `examples/` as reference.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
