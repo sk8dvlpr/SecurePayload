@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.8.0] - 2026-07-09
+### Added
+- **Enterprise Operations (Phase 15)** — adapter KMS multi-cloud dan exporter Prometheus:
+  - `SecurePayload\KMS\GcpKms` — GCP Cloud KMS (`additionalAuthenticatedData` binding AAD context). Dependency opsional: `google/cloud-kms`.
+  - `SecurePayload\KMS\AzureKeyVaultKms` — Azure Key Vault Cryptography (`additionalAuthenticatedData`). Dependency opsional: `azure/keyvault-keys`.
+  - `SecurePayload\Observability\PrometheusSecurityExporter` — counter `securepayload_security_events_total` dari hook `onSecurityEvent`; label `client_id`/`key_id` opt-in (cardinality).
+  - Contoh: `examples/observability/prometheus.php`.
+
+### Notes
+- Murni aditif: **tidak mengubah format wire** protokol v3. OpenTelemetry ditunda ke backlog.
+
 ## [2.7.1] - 2026-07-09
 ### Added
 - **Cross-Language SDKs (Phase 14)** — SDK Node.js/TypeScript dan Go untuk protokol v3 (byte-exact):

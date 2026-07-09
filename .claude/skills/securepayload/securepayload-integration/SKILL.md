@@ -225,7 +225,7 @@ Same header names and values must reach server unchanged.
 - [ ] DbKeyProvider + KMS wrap for AEAD keys at rest
 - [ ] Key rotation: `useKeyLifecycle=true`, `KeyManager::rotateKey()` — see `docs/KEY_ROTATION.md`
 - [ ] HMAC secrets ≥ 32 chars; rotate via new `keyId` + grace window
-- [ ] onSecurityEvent → logging/metrics (Phase 15: Prometheus)
+- [ ] onSecurityEvent → `PrometheusSecurityExporter` atau logging/SIEM
 - [ ] Security test suite passes in CI
 ```
 
@@ -238,7 +238,28 @@ $kms = new VaultKms('https://vault:8200', $token);
 // AWS KMS
 $kms = new AwsKms($kmsClient);
 
+// GCP Cloud KMS
+$kms = new GcpKms($kmsClient);
+
+// Azure Key Vault
+$kms = new AzureKeyVaultKms($cryptoClient);
+
 $provider = new DbKeyProvider($pdo, ['useKeyLifecycle' => true], $kms);
+```
+
+## Prometheus Metrics (Phase 15)
+
+```php
+use SecurePayload\Observability\PrometheusSecurityExporter;
+
+$exporter = new PrometheusSecurityExporter();
+$server = new SecurePayload([
+    'mode' => 'both',
+    'keyLoader' => $loader,
+    'onSecurityEvent' => $exporter->onSecurityEvent(),
+]);
+// Endpoint /metrics: echo $exporter->render();
+// Contoh lengkap: examples/observability/prometheus.php
 ```
 
 ## Future: Official Framework Packages

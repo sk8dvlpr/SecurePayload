@@ -446,6 +446,27 @@ Event yang diemit (lihat konstanta `SecurePayload::EVENT_*`):
 
 > Context tiap event memuat `clientId`/`keyId` plus penanda ringan (`source`/`alg`/`kind`/`scope`). **Tidak pernah** memuat secret, plaintext, atau ciphertext.
 
+### Exporter Prometheus (Phase 15)
+
+`PrometheusSecurityExporter` menghitung counter `securepayload_security_events_total` dari hook yang sama — tanpa boilerplate custom:
+
+```php
+use SecurePayload\Observability\PrometheusSecurityExporter;
+
+$exporter = new PrometheusSecurityExporter();
+$server = new SecurePayload([
+    'mode' => 'both',
+    'keyLoader' => $loader,
+    'onSecurityEvent' => $exporter->onSecurityEvent(),
+]);
+
+// Endpoint /metrics (native PHP):
+header('Content-Type: text/plain; version=0.0.4; charset=utf-8');
+echo $exporter->render();
+```
+
+Label `client_id` / `key_id` **opt-in** (`includeClientId`, `includeKeyId`) — default hanya `event` untuk menghindari cardinality tinggi. Contoh server: [`examples/observability/prometheus.php`](examples/observability/prometheus.php).
+
 ---
 
 ## ⚙️ Opsi Konstruktor
@@ -565,11 +586,17 @@ $kms = new VaultKms('https://vault.example.com:8200', getenv('VAULT_TOKEN') ?: '
 $client = new \Aws\Kms\KmsClient(['region' => 'ap-southeast-1', 'version' => 'latest']);
 $kms = new AwsKms($client);
 
+// GCP Cloud KMS — AAD → additionalAuthenticatedData (composer suggest google/cloud-kms).
+$kms = new \SecurePayload\KMS\GcpKms($gcpKmsClient);
+
+// Azure Key Vault — AAD → additionalAuthenticatedData (composer suggest azure/keyvault-keys).
+$kms = new \SecurePayload\KMS\AzureKeyVaultKms($cryptoClient);
+
 // Pakai sama seperti LocalKms (inject ke DbKeyProvider / KeyManager):
 $provider = new \SecurePayload\KMS\DbKeyProvider($pdo, [], $kms);
 ```
 
-> `VaultKms` memakai token auth + Transit; transport HTTP dapat di-inject (default cURL, butuh `ext-curl`). `AwsKms` membungkus klien `Aws\Kms\KmsClient` (dependensi opsional). Kredensial AWS mengikuti rantai standar SDK (env/role/profile).
+> `VaultKms` memakai token auth + Transit; transport HTTP dapat di-inject (default cURL, butuh `ext-curl`). `AwsKms` membungkus klien `Aws\Kms\KmsClient` (dependensi opsional). `GcpKms` dan `AzureKeyVaultKms` mengikuti pola injeksi klien yang sama (unit-testable tanpa jaringan). Kredensial cloud mengikuti rantai standar SDK masing-masing.
 
 ---
 

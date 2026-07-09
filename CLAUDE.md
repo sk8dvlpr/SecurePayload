@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `sk8dvlpr/securepayload` is a framework-agnostic PHP 8.0+ library for securing S2S / client-server HTTP requests with HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, and anti-replay protection. Distributed via Packagist; no application/runtime — it's a library consumed by other apps.
 
-**Current release:** 2.7.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
+**Current release:** 2.8.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
 
 Note: source comments, docblocks, and exception messages are written in **Indonesian**. Match that language when editing existing code so the style stays consistent.
 
@@ -33,7 +33,7 @@ Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.
 
 ## Roadmap
 
-Phases 1–14 complete (see CHANGELOG v2.0.0–v2.7.1; Phases 9–14 in bundle release). **Phase 14 complete**: Node.js SDK in `packages/node-sdk`, Go SDK in `packages/go-sdk`. Next: Phase 15 (Enterprise Ops). Full roadmap: `docs/ROADMAP.md`.
+Phases 1–15 complete (see CHANGELOG v2.0.0–v2.8.0; Phases 9–15 in bundle release). **Phase 15 complete**: GCP/Azure KMS adapters + Prometheus exporter. Full roadmap: `docs/ROADMAP.md`.
 
 ## Agent Skills
 
@@ -71,6 +71,7 @@ Security headers are `X-Client-Id`, `X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Sig
 | 6 | 2.5 | File streaming: `buildFileStream()`, `verifyFileStream()` |
 | 7 | 2.6 | Cloud KMS: `VaultKms`, `AwsKms` |
 | 8 | 2.7 | Observability: `onSecurityEvent`, `EVENT_*` constants |
+| 15 | 2.8 | Enterprise ops: `GcpKms`, `AzureKeyVaultKms`, `PrometheusSecurityExporter` |
 | 9 | bundle | Ed25519 response signing (mirror `signAlg`; server keypair) |
 | 10 | bundle | Key rotation + grace period (`rotateKey`, `useKeyLifecycle`) |
 
@@ -112,9 +113,11 @@ Opt-in `deriveKeys => true`: master HMAC/AEAD keys derive per-function subkeys v
   - `signAlg=ed25519`: server signs with `ed25519SecretKeyServerB64` (keyLoader or instance); client verifies with `ed25519PublicKeyServerB64`. **No shared HMAC needed for response.**
 - Request Ed25519 uses **client** keypair (`ed25519SecretKeyB64` / `ed25519PublicKeyB64`); response Ed25519 uses **server** keypair — distinct keys, do not mix.
 
-### Observability (Phase 8)
+### Observability (Phase 8 + 15)
 
 `onSecurityEvent` callback emits: `timestamp_invalid`, `replay_detected`, `decrypt_failed`, `signature_invalid`, `key_not_found`, `nonce_mismatch`. Context never contains secrets/plaintext. Callback exceptions are swallowed.
+
+`PrometheusSecurityExporter` (Phase 15) — `src/Observability/PrometheusSecurityExporter.php`: factory `onSecurityEvent()` + `render()` Prometheus text format. Counter `securepayload_security_events_total{event=...}`. Label `client_id`/`key_id` opt-in (cardinality). Example: `examples/observability/prometheus.php`.
 
 ### Key management (`src/KMS/`)
 
@@ -128,6 +131,8 @@ Key-wrapping (encrypting the AEAD data-key with a KEK):
 - `LocalKms` — XChaCha20-Poly1305 wrapping using KEKs from env (`SECURE_KEKS` list + `SECURE_KEK_{id}_B64`).
 - `VaultKms` — HashiCorp Vault Transit (`derived=true` on keys).
 - `AwsKms` — AWS KMS EncryptionContext (optional `aws/aws-sdk-php`).
+- `GcpKms` — GCP Cloud KMS `additionalAuthenticatedData` (optional `google/cloud-kms`).
+- `AzureKeyVaultKms` — Azure Key Vault Cryptography (optional `azure/keyvault-keys`).
 - `KeyManager` — generates HMAC+AEAD key pairs, Ed25519 client/server pairs, optionally wraps AEAD key, emits `INSERT` SQL (`GeneratedKeyResult::toSqlInsert()`). **Rotation:** `rotateKey()` → `KeyRotationResult` with grace-period SQL; `revokeKey()`, `purgeExpiredRetiringKeys()`. See `docs/KEY_ROTATION.md`.
 
 ### Replay store (`src/ReplayStore/`)

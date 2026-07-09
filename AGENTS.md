@@ -22,7 +22,7 @@ Library: `sk8dvlpr/securepayload` v2.8.0 | Protocol version: `3`
 
 ## Roadmap
 
-Phases 1–14 done. Phase 15 (Enterprise Ops) is next. Full plan: `docs/ROADMAP.md`
+Phases 1–15 done. Full plan: `docs/ROADMAP.md`
 
 ## SecurePayload Skills
 

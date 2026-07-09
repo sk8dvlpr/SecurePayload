@@ -11,15 +11,15 @@ description: SecurePayload development roadmap, phase status, priorities, and sc
 
 ## Completed (Do Not Re-Implement)
 
-Phases 1–14 are shipped. Phase 15 (Enterprise Ops) is next. See CHANGELOG.md v2.0.0–v2.7.1.
+Phases 1–15 are shipped. See CHANGELOG.md v2.0.0–v2.8.0.
 
 ## Next Phases (Priority Order)
 
 ### Phase 14 — Cross-Language SDKs ✅
 Node.js SDK (`packages/node-sdk`) and Go SDK (`packages/go-sdk`) shipped with conformance v3 + PHP interop + CI. **Requires Phase 11** ✅.
 
-### Phase 15 — Enterprise Ops 📋
-GCP/Azure KMS, Prometheus metrics via `onSecurityEvent`.
+### Phase 15 — Enterprise Ops ✅
+GCP/Azure KMS adapters + `PrometheusSecurityExporter` via `onSecurityEvent`. OpenTelemetry ditunda backlog.
 
 ## Recommended Sequence
 

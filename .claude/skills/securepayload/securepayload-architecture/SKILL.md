@@ -24,12 +24,15 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `src/KMS/LocalKms.php` | XChaCha20 KEK wrapping from env |
 | `src/KMS/VaultKms.php` | HashiCorp Vault Transit |
 | `src/KMS/AwsKms.php` | AWS KMS EncryptionContext |
+| `src/KMS/GcpKms.php` | GCP Cloud KMS additionalAuthenticatedData |
+| `src/KMS/AzureKeyVaultKms.php` | Azure Key Vault Cryptography |
 | `src/KMS/EnvKeyProvider.php` | Keys from `SECUREPAYLOAD_{CID}_{KID}_*` env vars |
 | `src/KMS/DbKeyProvider.php` | PDO `secure_keys` table + optional KMS unwrap + lifecycle filter (`useKeyLifecycle`) |
 | `src/KMS/KeyManager.php` | Generate keys, `rotateKey()` / `revokeKey()`, SQL export |
 | `src/KMS/KeyStatus.php` | Lifecycle constants: `active`, `retiring`, `revoked` |
 | `src/KMS/SecureKeyProvider.php` | Provider interface |
 | `src/ReplayStore/Psr16ReplayStore.php` | PSR-16 → `replayStore` callable |
+| `src/Observability/PrometheusSecurityExporter.php` | Prometheus counter dari `onSecurityEvent` |
 | `examples/` | Framework integration patterns (legacy reference) |
 | `packages/` | Official framework packages + `securepayload-cli` |
 | `tests/Unit/` | Unit tests |
@@ -120,6 +123,7 @@ Response: `X-Resp-*` namespace (timestamp, nonce, signature, body-digest, AEAD).
 | 5 | `deriveKeys` HKDF subkeys |
 | 6 | `buildFileStream` / `verifyFileStream` |
 | 7 | `VaultKms`, `AwsKms` |
+| 15 | `GcpKms`, `AzureKeyVaultKms`, `PrometheusSecurityExporter` |
 | 8 | `onSecurityEvent` observability |
 | 9 | Ed25519 response signing (mirror `signAlg`) |
 | 10 | Key rotation + grace period (`KeyManager::rotateKey`, `useKeyLifecycle`) |

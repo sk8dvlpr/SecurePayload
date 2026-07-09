@@ -26,7 +26,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 12 | Framework packages resmi (Laravel, Symfony, CI4, Slim) | — | ✅ Done |
 | 13 | PSR-18 HTTP transport + CLI tooling | — | ✅ Done |
 | 14 | SDK lintas bahasa (Node.js, Go) | — | ✅ Done |
-| 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | — | 📋 Planned |
+| 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | 2.8.0 | ✅ Done |
 
 ---
 
@@ -117,16 +117,20 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 
 ---
 
-## Phase 15 — Enterprise Operations
+## Phase 15 — Enterprise Operations ✅ Done
 
 **Tujuan:** Adopsi enterprise / multi-cloud.
 
-**Lingkup:**
-- `GcpKms`, `AzureKeyVaultKms` (ikuti pola `AwsKms`/`VaultKms`)
-- Exporter metrics Prometheus via `onSecurityEvent`
-- Opsional: OpenTelemetry spans
+**Diimplementasikan:**
+- `GcpKms` — GCP Cloud KMS (`additionalAuthenticatedData` = AAD context JSON ter-ksort)
+- `AzureKeyVaultKms` — Azure Key Vault Cryptography (RSA-OAEP + `additionalAuthenticatedData`)
+- `PrometheusSecurityExporter` — counter metrik dari `onSecurityEvent` (`securepayload_security_events_total`)
+- Contoh: `examples/observability/prometheus.php`
+- `google/cloud-kms` dan `azure/keyvault-keys` di `composer suggest` (opsional)
 
-**Prasyarat:** Interface `Kms` sudah pluggable (Phase 7).
+**Backlog:** OpenTelemetry spans (tidak masuk Phase 15).
+
+**Prasyarat:** Interface `Kms` pluggable (Phase 7) ✅.
 
 ---
 
