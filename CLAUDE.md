@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`sk8dvlpr/securepayload` is a framework-agnostic PHP 8.0+ library (single core class plus a KMS subsystem) for securing S2S / client-server HTTP requests with HMAC-SHA256 signing, XChaCha20-Poly1305 AEAD encryption, and anti-replay protection. Distributed via Packagist; no application/runtime — it's a library consumed by other apps.
+`sk8dvlpr/securepayload` is a framework-agnostic PHP 8.0+ library for securing S2S / client-server HTTP requests with HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, and anti-replay protection. Distributed via Packagist; no application/runtime — it's a library consumed by other apps.
+
+**Current release:** 2.7.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
 
 Note: source comments, docblocks, and exception messages are written in **Indonesian**. Match that language when editing existing code so the style stays consistent.
 
@@ -27,27 +29,61 @@ find src -name "*.php" -print0 | xargs -0 -n1 php -l          # syntax lint (mir
 
 CI (`.github/workflows/ci.yml`) runs validate → install → `php -l` → PHPStan → PHPUnit across PHP 8.0–8.3. `composer.json` pins `platform.php` to `8.0.28`, so locally-installed deps resolve against 8.0 even on a newer interpreter — keep new code 8.0-compatible.
 
-Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.neon`, `CLAUDE.md`) are excluded from the Composer dist via `.gitattributes` `export-ignore` — consumers get only `src/`.
+Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.neon`, `CLAUDE.md`, `docs/`) are excluded from the Composer dist via `.gitattributes` `export-ignore` — consumers get only `src/`.
+
+## Roadmap
+
+Phases 1–11 complete (see CHANGELOG v2.0.0–v2.7.0; Phases 9–11 in bundle release). Next planned: **Phase 12** (framework packages). Full roadmap: `docs/ROADMAP.md`.
+
+## Agent Skills
+
+| Task | Skill |
+|------|-------|
+| Architecture / how X works | `.claude/skills/securepayload/securepayload-architecture/SKILL.md` |
+| Implement feature / fix bug | `.claude/skills/securepayload/securepayload-development/SKILL.md` |
+| Plan next phase / scope PR | `.claude/skills/securepayload/securepayload-roadmap/SKILL.md` |
+| Security review | `.claude/skills/securepayload/securepayload-security-review/SKILL.md` |
+| Framework integration | `.claude/skills/securepayload/securepayload-integration/SKILL.md` |
 
 ## Architecture
 
 ### Core protocol (`src/SecurePayload.php`)
 
-One ~1100-line `final class SecurePayload` is the whole protocol. It is both the client (build/sign/encrypt) and the server (verify/decrypt) side, selected by which methods you call.
+One ~2100-line `final class SecurePayload` is the whole protocol. It is both the client (build/sign/encrypt) and the server (verify/decrypt) side, selected by which methods you call.
 
 - **Modes**: `'hmac'` (sign only), `'aead'` (encrypt only), `'both'` (encrypt + sign). Set at construction.
-- **Client entry points**: `buildHeadersAndBody()` (core), `send()` (cURL wrapper), `buildFilePayload()`/`sendFile()` (file attachments).
-- **Server entry points**: `verify()` (safe, returns `['ok'=>bool, ...]`), `verifyOrThrow()` (throws `SecurePayloadException`), `verifySimple()`, `verifyFilePayload()`.
+- **signAlg**: `'hmac'` (default, HMAC-SHA256) or `'ed25519'` (asymmetric request signing).
+- **Client entry points**: `buildHeadersAndBody()` (core), `send()` (cURL wrapper), `buildFilePayload()`/`sendFile()` (in-memory file), `buildFileStream()` (large file streaming), `verifyResponse()`/`verifyResponseOrThrow()`.
+- **Server entry points**: `verify()` (safe, returns `['ok'=>bool, ...]`), `verifyOrThrow()`, `verifySimple()`, `verifyFilePayload()`, `verifyFileStream()`, `buildResponse()`.
 
-Security headers are `X-Client-Id`, `X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature-*`, `X-Body-Digest`, `X-Canonical-Request`, `X-AEAD-*` (the `HX_*` constants).
+Security headers are `X-Client-Id`, `X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature-*`, `X-Body-Digest`, `X-Canonical-Request`, `X-AEAD-*` (the `HX_*` constants). Response uses `X-Resp-*` namespace.
 
-Invariants that must stay true when modifying signing/verifying — these are the security contract:
+### Completed development phases
+
+| Phase | Version | Feature |
+|-------|---------|---------|
+| 1 | 1.0 | Core HMAC/AEAD/BOTH, anti-replay, KMS basics |
+| 1b | 2.0 | Ed25519 request signing (`signAlg`) |
+| 2 | 2.1 | Response two-way: `buildResponse()`, `verifyResponse()` |
+| 3 | 2.2 | AAD binding: timestamp + `bindHeaders` (wire v3) |
+| 4 | 2.3 | `Psr16ReplayStore` adapter |
+| 5 | 2.4 | HKDF subkeys (`deriveKeys`, `deriveKey()`) |
+| 6 | 2.5 | File streaming: `buildFileStream()`, `verifyFileStream()` |
+| 7 | 2.6 | Cloud KMS: `VaultKms`, `AwsKms` |
+| 8 | 2.7 | Observability: `onSecurityEvent`, `EVENT_*` constants |
+| 9 | bundle | Ed25519 response signing (mirror `signAlg`; server keypair) |
+| 10 | bundle | Key rotation + grace period (`rotateKey`, `useKeyLifecycle`) |
+
+### Security invariants (never break)
 
 - **Canonicalization is symmetric.** Client and server must produce identical canonical method/path/query. `normalizePath()`, `canonicalQuery()` (ksort + rawurlencode), `hmacMessage()`, and `aeadNonceFrom()` are the shared formatters — changing one side without the other silently breaks all verification.
 - **The server derives method/path/query from its own request input, NOT from the `X-Canonical-Request` header.** That header is a debug hint only. `verifyOrThrow()` requires the caller to pass `$method`/`$path`/`$query` explicitly. Do not "fix" verification by reading them from headers — that reintroduces a signature-spoofing vuln (see `tests/Security/SignatureSpoofingTest.php`).
 - **HMAC signs the plaintext, not the ciphertext** (in `both` mode), so verification asserts the meaning of the data. The AEAD nonce is derived from the client nonce bound to method/path/query (`aeadNonceFrom`) and re-verified via `hash_equals` to prevent nonce relocation.
 - Use `hash_equals` for every secret/signature comparison.
 - HMAC secrets are rejected if `< 32` chars (both at construction and when loaded via keyLoader). AEAD keys must decode to exactly 32 bytes.
+- **`signAlg` is determined by server configuration**, not the client's `X-Signature-Algorithm` header (anti-downgrade).
+- **`deriveKeys` and `bindHeaders` must be identical** on client and server; mismatch fails closed.
+- **Response is bound to the request nonce** — cannot be relocated to another request context.
 
 ### Replay protection (`checkReplay`)
 
@@ -57,21 +93,55 @@ The replay key is `hash(clientId|keyId|nonce)` — deliberately **excludes the t
 
 Timestamp window: rejects future beyond `clockSkew` (default 60s) and past beyond `replayTtl + clockSkew` (replayTtl default 120s).
 
+### AAD binding (Phase 3, protocol v3)
+
+- `X-Timestamp` is always bound to AEAD AAD (request and response).
+- `bindHeaders` option binds critical header values to AAD; change or removal fails decryption.
+- Client supplies bound header values via `$extraHeaders` on `buildHeadersAndBody()` / `send()`.
+
+### HKDF subkeys (Phase 5)
+
+Opt-in `deriveKeys => true`: master HMAC/AEAD keys derive per-function subkeys via `hash_hkdf`. Purposes: `sp-aead-req`, `sp-aead-resp`, `sp-sign-req`, `sp-sign-resp`, `sp-aead-stream`. Labels bind to protocol version. Does not apply to Ed25519 signing.
+
+### Response security (Phase 2 + 9)
+
+- Server: `buildResponse($requestHeaders, $payload)` after successful verify.
+- Client: `verifyResponse($headers, $body, $reqNonce)` using request nonce.
+- Response signing follows **`signAlg` mirror**:
+  - `signAlg=hmac` (default): HMAC-SHA256 with shared secret (`hmacSecretRaw` / `keyLoader` `hmacSecret`).
+  - `signAlg=ed25519`: server signs with `ed25519SecretKeyServerB64` (keyLoader or instance); client verifies with `ed25519PublicKeyServerB64`. **No shared HMAC needed for response.**
+- Request Ed25519 uses **client** keypair (`ed25519SecretKeyB64` / `ed25519PublicKeyB64`); response Ed25519 uses **server** keypair — distinct keys, do not mix.
+
+### Observability (Phase 8)
+
+`onSecurityEvent` callback emits: `timestamp_invalid`, `replay_detected`, `decrypt_failed`, `signature_invalid`, `key_not_found`, `nonce_mismatch`. Context never contains secrets/plaintext. Callback exceptions are swallowed.
+
 ### Key management (`src/KMS/`)
 
-The server loads per-(clientId, keyId) secrets through a `keyLoader` callable returning `['hmacSecret'=>?string, 'aeadKeyB64'=>?string]`. Providers implementing `SecureKeyProvider`:
+The server loads per-(clientId, keyId) secrets through a `keyLoader` callable returning `['hmacSecret'=>?string, 'aeadKeyB64'=>?string, 'ed25519PublicKeyB64'=>?string, 'ed25519SecretKeyServerB64'=>?string, 'ed25519PublicKeyServerB64'=>?string]`. Providers implementing `SecureKeyProvider`:
 
-- `EnvKeyProvider` — reads `SECUREPAYLOAD_{CID}_{KID}_HMAC_SECRET` / `_AEAD_KEY_B64` env vars.
-- `DbKeyProvider` — PDO-backed (`secure_keys` table by default; column names configurable). Table/column names are validated against `^[A-Za-z_][A-Za-z0-9_]*$` since they're interpolated into SQL (values are always bound). If a row stores a *wrapped* AEAD key (`wrapped_b64` + `kek_id`) instead of plaintext, it is unwrapped via an injected `Kms`.
+- `EnvKeyProvider` — reads `SECUREPAYLOAD_{CID}_{KID}_HMAC_SECRET` / `_AEAD_KEY_B64` / `_ED25519_PUBLIC_B64` / `_ED25519_SERVER_SECRET_B64` / `_ED25519_SERVER_PUBLIC_B64` env vars.
+- `DbKeyProvider` — PDO-backed (`secure_keys` table by default; column names configurable). Table/column names are validated against `^[A-Za-z_][A-Za-z0-9_]*$` since they're interpolated into SQL (values are always bound). If a row stores a *wrapped* AEAD key (`wrapped_b64` + `kek_id`) instead of plaintext, it is unwrapped via an injected `Kms`. Opt-in `useKeyLifecycle` filters `status` (`active`/`retiring`/`revoked`) + `valid_until` grace window.
 
 Key-wrapping (encrypting the AEAD data-key with a KEK):
 - `Kms` interface: `wrap()` / `unwrap()` with an AAD context array.
-- `LocalKms` — XChaCha20-Poly1305 wrapping using KEKs from env (`SECURE_KEKS` list + `SECURE_KEK_{id}_B64`). AAD is `ksort`ed + json-encoded; the same context must be supplied to unwrap. The standard context is `['client_id'=>..., 'key_id'=>..., 'purpose'=>'securepayload-aead-key']`.
-- `KeyManager` — generates HMAC+AEAD key pairs, optionally wraps the AEAD key, and emits ready-to-run `INSERT` SQL (`GeneratedKeyResult::toSqlInsert()`), nulling the plaintext AEAD column when a wrapped key exists.
+- `LocalKms` — XChaCha20-Poly1305 wrapping using KEKs from env (`SECURE_KEKS` list + `SECURE_KEK_{id}_B64`).
+- `VaultKms` — HashiCorp Vault Transit (`derived=true` on keys).
+- `AwsKms` — AWS KMS EncryptionContext (optional `aws/aws-sdk-php`).
+- `KeyManager` — generates HMAC+AEAD key pairs, Ed25519 client/server pairs, optionally wraps AEAD key, emits `INSERT` SQL (`GeneratedKeyResult::toSqlInsert()`). **Rotation:** `rotateKey()` → `KeyRotationResult` with grace-period SQL; `revokeKey()`, `purgeExpiredRetiringKeys()`. See `docs/KEY_ROTATION.md`.
+
+### Replay store (`src/ReplayStore/`)
+
+- `Psr16ReplayStore` — wraps `Psr\SimpleCache\CacheInterface` as invokable `replayStore`. Uses atomic `add()` when available; falls back to `has()+set()` for pure PSR-16.
+- Examples: `examples/replay-store/redis.php`, `memcached.php`, `psr16.php`.
 
 ### File transfer
 
-Files are base64-embedded into the JSON payload under `_attachment` (`name/size/type/content`), then signed/encrypted like any payload — entire file is held in memory (+33% base64 overhead), so it's unsuitable for large files. `verifyFilePayload()` adds size limits, extension allow/block lists, and `strict_mime` magic-byte sniffing (anti-spoofing: rejects mismatches between extension and sniffed MIME, and blocks dangerous MIME types regardless of extension).
+**In-memory** (`buildFilePayload` / `verifyFilePayload`): base64-embedded in JSON under `_attachment`. Entire file in RAM (+33% overhead) — suitable for files ≤ ~10MB.
+
+**Streaming** (`buildFileStream` / `verifyFileStream`, Phase 6): XChaCha20-Poly1305 secretstream per-chunk. Manifest sent via secure request; ciphertext uploaded separately. RAM ≈ one chunk. Fail-closed: partial plaintext deleted on verification failure.
+
+Both support `max_size`, `allowed_exts`, `block_dangerous`, `strict_mime` magic-byte sniffing.
 
 ## Conventions
 
@@ -83,7 +153,7 @@ Files are base64-embedded into the JSON payload under `_attachment` (`name/size/
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SecurePayload** (947 symbols, 2689 relationships, 70 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **SecurePayload** (1183 symbols, 3271 relationships, 76 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -123,3 +193,142 @@ This project is indexed by GitNexus as **SecurePayload** (947 symbols, 2689 rela
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+<!-- rtk-instructions v2 -->
+# RTK (Rust Token Killer) - Token-Optimized Commands
+
+## Golden Rule
+
+**Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
+
+**Important**: Even in command chains with `&&`, use `rtk`:
+```bash
+# ❌ Wrong
+git add . && git commit -m "msg" && git push
+
+# ✅ Correct
+rtk git add . && rtk git commit -m "msg" && rtk git push
+```
+
+## RTK Commands by Workflow
+
+### Build & Compile (80-90% savings)
+```bash
+rtk cargo build         # Cargo build output
+rtk cargo check         # Cargo check output
+rtk cargo clippy        # Clippy warnings grouped by file (80%)
+rtk tsc                 # TypeScript errors grouped by file/code (83%)
+rtk lint                # ESLint/Biome violations grouped (84%)
+rtk prettier --check    # Files needing format only (70%)
+rtk next build          # Next.js build with route metrics (87%)
+```
+
+### Test (60-99% savings)
+```bash
+rtk cargo test          # Cargo test failures only (90%)
+rtk go test             # Go test failures only (90%)
+rtk jest                # Jest failures only (99.5%)
+rtk vitest              # Vitest failures only (99.5%)
+rtk playwright test     # Playwright failures only (94%)
+rtk pytest              # Python test failures only (90%)
+rtk rake test           # Ruby test failures only (90%)
+rtk rspec               # RSpec test failures only (60%)
+rtk test <cmd>          # Generic test wrapper - failures only
+```
+
+### Git (59-80% savings)
+```bash
+rtk git status          # Compact status
+rtk git log             # Compact log (works with all git flags)
+rtk git diff            # Compact diff (80%)
+rtk git show            # Compact show (80%)
+rtk git add             # Ultra-compact confirmations (59%)
+rtk git commit          # Ultra-compact confirmations (59%)
+rtk git push            # Ultra-compact confirmations
+rtk git pull            # Ultra-compact confirmations
+rtk git branch          # Compact branch list
+rtk git fetch           # Compact fetch
+rtk git stash           # Compact stash
+rtk git worktree        # Compact worktree
+```
+
+Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
+
+### GitHub (26-87% savings)
+```bash
+rtk gh pr view <num>    # Compact PR view (87%)
+rtk gh pr checks        # Compact PR checks (79%)
+rtk gh run list         # Compact workflow runs (82%)
+rtk gh issue list       # Compact issue list (80%)
+rtk gh api              # Compact API responses (26%)
+```
+
+### JavaScript/TypeScript Tooling (70-90% savings)
+```bash
+rtk pnpm list           # Compact dependency tree (70%)
+rtk pnpm outdated       # Compact outdated packages (80%)
+rtk pnpm install        # Compact install output (90%)
+rtk npm run <script>    # Compact npm script output
+rtk npx <cmd>           # Compact npx command output
+rtk prisma              # Prisma without ASCII art (88%)
+```
+
+### Files & Search (60-75% savings)
+```bash
+rtk ls <path>           # Tree format, compact (65%)
+rtk read <file>         # Code reading with filtering (60%)
+rtk grep <pattern>      # Search grouped by file (75%). Format flags (-c, -l, -L, -o, -Z) run raw.
+rtk find <pattern>      # Find grouped by directory (70%)
+```
+
+### Analysis & Debug (70-90% savings)
+```bash
+rtk err <cmd>           # Filter errors only from any command
+rtk log <file>          # Deduplicated logs with counts
+rtk json <file>         # JSON structure without values
+rtk deps                # Dependency overview
+rtk env                 # Environment variables compact
+rtk summary <cmd>       # Smart summary of command output
+rtk diff                # Ultra-compact diffs
+```
+
+### Infrastructure (85% savings)
+```bash
+rtk docker ps           # Compact container list
+rtk docker images       # Compact image list
+rtk docker logs <c>     # Deduplicated logs
+rtk kubectl get         # Compact resource list
+rtk kubectl logs        # Deduplicated pod logs
+```
+
+### Network (65-70% savings)
+```bash
+rtk curl <url>          # Compact HTTP responses (70%)
+rtk wget <url>          # Compact download output (65%)
+```
+
+### Meta Commands
+```bash
+rtk gain                # View token savings statistics
+rtk gain --history      # View command history with savings
+rtk discover            # Analyze Claude Code sessions for missed RTK usage
+rtk proxy <cmd>         # Run command without filtering (for debugging)
+rtk init                # Add RTK instructions to CLAUDE.md
+rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
+```
+
+## Token Savings Overview
+
+| Category | Commands | Typical Savings |
+|----------|----------|-----------------|
+| Tests | vitest, playwright, cargo test | 90-99% |
+| Build | next, tsc, lint, prettier | 70-87% |
+| Git | status, log, diff, add, commit | 59-80% |
+| GitHub | gh pr, gh run, gh issue | 26-87% |
+| Package Managers | pnpm, npm, npx | 70-90% |
+| Files | ls, read, grep, find | 60-75% |
+| Infrastructure | docker, kubectl | 85% |
+| Network | curl, wget | 65-70% |
+
+Overall average: **60-90% token reduction** on common development operations.
+<!-- /rtk-instructions -->

@@ -1,0 +1,10 @@
+{
+    "clientId": "conf-client",
+    "keyId": "conf-key-v1",
+    "hmacSecret": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "aeadKeyB64": "ERERERERERERERERERERERERERERERERERERERERERE=",
+    "ed25519ClientSecretB64": "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkIhUvjRm3kdJEUyQuFfLqtst8/6e2pe0wCXlg4GmIHbEg==",
+    "ed25519ClientPublicB64": "IVL40Zt5HSRFMkLhXy6rbLfP+ntqXtMAl5YOBpiB2xI=",
+    "ed25519ServerSecretB64": "Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0Mi/Cl3kvC2/8C/z9t+2wwKoU4CWjZewONC6G44Kct0tg==",
+    "ed25519ServerPublicB64": "Ivwpd5Lwtv/Av8/bftsMCqFOAlo2XsDjQuhuOCnLdLY="
+}

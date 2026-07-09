@@ -1,0 +1,43 @@
+{
+    "id": "req-hmac-v3",
+    "protocol_version": "3",
+    "config": {
+        "mode": "hmac",
+        "signAlg": "hmac",
+        "deriveKeys": false,
+        "bindHeaders": []
+    },
+    "keys_ref": "standard",
+    "fixed": {
+        "timestamp": 1700000000,
+        "nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "resp_timestamp": 1700000060,
+        "resp_nonce_b64": "AgICAgICAgICAgICAgICAg=="
+    },
+    "request": {
+        "method": "POST",
+        "path": "/v1/pay",
+        "query": {
+            "a": "1",
+            "b": "2"
+        },
+        "payload": {
+            "amount": 100
+        },
+        "extra_headers": []
+    },
+    "expected": {
+        "headers": {
+            "X-Client-Id": "conf-client",
+            "X-Key-Id": "conf-key-v1",
+            "X-Timestamp": "1700000000",
+            "X-Nonce": "AQEBAQEBAQEBAQEBAQEBAQ==",
+            "X-Signature-Version": "3",
+            "X-Canonical-Request": "UE9TVAovdjEvcGF5CmE9MSZiPTI=",
+            "X-Signature-Algorithm": "HMAC-SHA256",
+            "X-Body-Digest": "sha256=TUu+Wcaq0iRCzeGZpqil8DRAX814+1qBwk7ySd4cRfE=",
+            "X-Signature": "O9sWSd94DGT/pcLlA/e5brK8Bgs6H1dhNTfH9tEBp+A="
+        },
+        "body": "{\"amount\":100}"
+    }
+}

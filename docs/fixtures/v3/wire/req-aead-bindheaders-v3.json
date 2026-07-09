@@ -1,0 +1,47 @@
+{
+    "id": "req-aead-bindheaders-v3",
+    "protocol_version": "3",
+    "config": {
+        "mode": "aead",
+        "signAlg": "hmac",
+        "deriveKeys": false,
+        "bindHeaders": [
+            "X-Request-Id"
+        ]
+    },
+    "keys_ref": "standard",
+    "fixed": {
+        "timestamp": 1700000000,
+        "nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "resp_timestamp": 1700000060,
+        "resp_nonce_b64": "AgICAgICAgICAgICAgICAg=="
+    },
+    "request": {
+        "method": "POST",
+        "path": "/v1/pay",
+        "query": {
+            "a": "1",
+            "b": "2"
+        },
+        "payload": {
+            "amount": 100
+        },
+        "extra_headers": {
+            "X-Request-Id": "trace-abc-123"
+        }
+    },
+    "expected": {
+        "headers": {
+            "X-Request-Id": "trace-abc-123",
+            "X-Client-Id": "conf-client",
+            "X-Key-Id": "conf-key-v1",
+            "X-Timestamp": "1700000000",
+            "X-Nonce": "AQEBAQEBAQEBAQEBAQEBAQ==",
+            "X-Signature-Version": "3",
+            "X-Canonical-Request": "UE9TVAovdjEvcGF5CmE9MSZiPTI=",
+            "X-AEAD-Algorithm": "XCHACHA20-POLY1305-IETF",
+            "X-AEAD-Nonce": "If4zo2Vns6bEzDWNngNcSt9//Q8HTlFn"
+        },
+        "body": "{\"__aead_b64\":\"C5b/F0hToExD/akKM/swBThQcut4aVrT03v9hZuD\"}"
+    }
+}

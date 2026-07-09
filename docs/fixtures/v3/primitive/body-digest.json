@@ -1,0 +1,13 @@
+{
+    "id": "body-digest",
+    "input": {
+        "payload": {
+            "amount": 100
+        },
+        "json": "{\"amount\":100}"
+    },
+    "expected": {
+        "digest_b64": "TUu+Wcaq0iRCzeGZpqil8DRAX814+1qBwk7ySd4cRfE=",
+        "header_value": "sha256=TUu+Wcaq0iRCzeGZpqil8DRAX814+1qBwk7ySd4cRfE="
+    }
+}

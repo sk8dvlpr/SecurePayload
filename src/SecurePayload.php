@@ -161,6 +161,14 @@ final class SecurePayload
      */
     private $onSecurityEvent;
 
+    /** @var callable(): int */
+    private $clock;
+
+    /** @var callable(): string */
+    private $nonceGenerator;
+
+    /** @var callable(): string */
+    private $respNonceGenerator;
 
     /**
      * Konstruktor SecurePayload
@@ -204,6 +212,9 @@ final class SecurePayload
      *               tidak ditemukan, nonce mismatch). Untuk integrasi SIEM/rate-limit.
      *               Context TIDAK pernah memuat secret/plaintext. Exception dari
      *               callback ditelan (tidak memengaruhi verifikasi).
+     * - clock: Callable unix timestamp acuan (Default: time()). Dipakai verifikasi timestamp.
+     * - nonceGenerator: Callable nonce request base64 (Default: genNonceB64()).
+     * - respNonceGenerator: Callable nonce response base64 (Default: genNonceB64()).
      *
      * @param array{
      *   mode?: 'hmac'|'aead'|'both',
@@ -223,6 +234,9 @@ final class SecurePayload
      *   bindHeaders?: list<string>,
      *   deriveKeys?: bool,
      *   onSecurityEvent?: callable|null,
+     *   clock?: callable|null,
+     *   nonceGenerator?: callable|null,
+     *   respNonceGenerator?: callable|null
      * } $opts
      * @throws SecurePayloadException Jika konfigurasi tidak valid
      */
@@ -268,6 +282,9 @@ final class SecurePayload
 
         $hook = $opts['onSecurityEvent'] ?? null;
         $this->onSecurityEvent = is_callable($hook) ? $hook : null;
+        $this->clock = $opts['clock'] ?? static fn (): int => time();
+        $this->nonceGenerator = $opts['nonceGenerator'] ?? static fn (): string => self::genNonceB64();
+        $this->respNonceGenerator = $opts['respNonceGenerator'] ?? static fn (): string => self::genNonceB64();
 
         if (!in_array($this->mode, ['hmac', 'aead', 'both'], true)) {
             throw new SecurePayloadException('Mode tidak valid: ' . $this->mode, SecurePayloadException::BAD_REQUEST);
@@ -361,8 +378,8 @@ final class SecurePayload
         }
 
         $ver = $this->version;
-        $ts = (string) time();
-        $nonceB64 = self::genNonceB64();
+        $ts = (string) ($this->clock)();
+        $nonceB64 = ($this->nonceGenerator)();
 
         // Nilai header kritikal yang diikat ke AAD diambil dari header tambahan
         // yang akan benar-benar dikirim. Server membaca nilai yang sama dari
@@ -697,7 +714,7 @@ final class SecurePayload
             throw new SecurePayloadException('Format timestamp salah', SecurePayloadException::BAD_REQUEST, ['nilai' => $tsStr]);
         }
         $ts = (int) $tsStr;
-        $now = time();
+        $now = ($this->clock)();
 
         // Cek range waktu: tidak boleh masa depan (skew) dan tidak boleh terlalu lampau (ttl + skew)
         if ($ts > $now + $this->clockSkew || $ts < $now - ($this->replayTtl + $this->clockSkew)) {
@@ -1512,8 +1529,8 @@ final class SecurePayload
         [$hmacRaw, $aeadB64, $ed25519SecretServerB64] = $this->resolveResponseKeys($cid, $kid);
 
         $ver = $this->version;
-        $respTs = (string) time();
-        $respNonceB64 = self::genNonceB64();
+        $respTs = (string) ($this->clock)();
+        $respNonceB64 = ($this->respNonceGenerator)();
 
         $headers = [
             self::HX_RESP_TIMESTAMP => $respTs,
@@ -1643,7 +1660,7 @@ final class SecurePayload
             throw new SecurePayloadException('Format timestamp response salah', SecurePayloadException::BAD_REQUEST, ['nilai' => $respTs]);
         }
         $ts = (int) $respTs;
-        $now = time();
+        $now = ($this->clock)();
         if ($ts > $now + $this->clockSkew || $ts < $now - ($this->replayTtl + $this->clockSkew)) {
             throw new SecurePayloadException('Timestamp response di luar batas wajar', SecurePayloadException::UNAUTHORIZED, ['ts' => $ts, 'now' => $now]);
         }
@@ -2087,6 +2104,24 @@ final class SecurePayload
         return base64_encode(hash('sha256', $body, true));
     }
 
+    public static function buildRequestAeadAad(string $version, string $ts, array $boundHeaders = []): string
+    {
+        $parts = ['v' . $version, 'ts=' . $ts];
+        ksort($boundHeaders);
+        foreach ($boundHeaders as $name => $val) {
+            $parts[] = 'h:' . $name . '=' . $val;
+        }
+        return implode("\n", $parts);
+    }
+
+    /**
+     * AAD untuk enkripsi RESPONSE (publik untuk spesifikasi / conformance).
+     */
+    public static function buildResponseAeadAad(string $version, string $reqNonceB64, string $respTs): string
+    {
+        return 'resp-v' . $version . '|req=' . $reqNonceB64 . '|ts=' . $respTs;
+    }
+
     /**
      * Bentuk AAD (Additional Authenticated Data) untuk enkripsi REQUEST.
      *
@@ -2100,13 +2135,7 @@ final class SecurePayload
      */
     private function aeadAAD(string $version, string $ts, array $boundHeaders = []): string
     {
-        $parts = ['v' . $version, 'ts=' . $ts];
-        ksort($boundHeaders);
-        foreach ($boundHeaders as $name => $val) {
-            $parts[] = 'h:' . $name . '=' . $val;
-        }
-        return implode("
-", $parts);
+        return self::buildRequestAeadAad($version, $ts, $boundHeaders);
     }
 
     /**
@@ -2191,7 +2220,7 @@ final class SecurePayload
      */
     private function respAeadAAD(string $version, string $reqNonceB64, string $respTs): string
     {
-        return 'resp-v' . $version . '|req=' . $reqNonceB64 . '|ts=' . $respTs;
+        return self::buildResponseAeadAad($version, $reqNonceB64, $respTs);
     }
 
     /**

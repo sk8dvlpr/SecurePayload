@@ -15,6 +15,9 @@
     <testsuite name="Security">
       <directory>tests/Security</directory>
     </testsuite>
+    <testsuite name="Conformance">
+      <directory>tests/Conformance</directory>
+    </testsuite>
   </testsuites>
   <coverage processUncoveredFiles="true">
     <include>

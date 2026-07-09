@@ -1,0 +1,50 @@
+{
+    "id": "signalg-downgrade",
+    "protocol_version": "3",
+    "config": {
+        "mode": "both",
+        "signAlg": "ed25519",
+        "deriveKeys": false,
+        "bindHeaders": []
+    },
+    "keys_ref": "standard",
+    "fixed": {
+        "timestamp": 1700000000,
+        "nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "resp_timestamp": 1700000060,
+        "resp_nonce_b64": "AgICAgICAgICAgICAgICAg=="
+    },
+    "request": {
+        "method": "POST",
+        "path": "/v1/pay",
+        "query": {
+            "a": "1",
+            "b": "2"
+        },
+        "payload": {
+            "amount": 100
+        },
+        "extra_headers": []
+    },
+    "expected": {
+        "headers": {
+            "X-Client-Id": "conf-client",
+            "X-Key-Id": "conf-key-v1",
+            "X-Timestamp": "1700000000",
+            "X-Nonce": "AQEBAQEBAQEBAQEBAQEBAQ==",
+            "X-Signature-Version": "3",
+            "X-Canonical-Request": "UE9TVAovdjEvcGF5CmE9MSZiPTI=",
+            "X-AEAD-Algorithm": "XCHACHA20-POLY1305-IETF",
+            "X-AEAD-Nonce": "If4zo2Vns6bEzDWNngNcSt9//Q8HTlFn",
+            "X-Signature-Algorithm": "ED25519",
+            "X-Body-Digest": "sha256=TUu+Wcaq0iRCzeGZpqil8DRAX814+1qBwk7ySd4cRfE=",
+            "X-Signature": "ZUivokA1Y5uFS+voSEEuSO5dKcYGpjMIl6urUUXz/9sJiy3C/XLYX49N+hQG+OeSiLIcmSJaLPM1jTgX4LoZAw=="
+        },
+        "body": "{\"__aead_b64\":\"C5b/F0hToExD/akKM/uCzYnUS0W440jZoYn/BHBt\"}"
+    },
+    "tamper": "Server configured signAlg=hmac but request header ED25519",
+    "server_config": {
+        "signAlg": "hmac"
+    },
+    "expected_failure": "signature_invalid"
+}

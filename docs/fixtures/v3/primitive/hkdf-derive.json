@@ -1,0 +1,16 @@
+{
+    "id": "hkdf-derive",
+    "cases": [
+        {
+            "master": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+            "purpose": "sp-sign-req|v3",
+            "expected_hex": "a8d4b411881ff817631fb027cd227dda27f33e5606e824fe4ca53e8d045ebc7b"
+        },
+        {
+            "master_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+            "master": "\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011\u0011",
+            "purpose": "sp-aead-req|v3",
+            "expected_hex": "24b59475dd8294e94bbc0f96cc458e09f0ec92191df0bb2a8a4cff5953f5e108"
+        }
+    ]
+}
