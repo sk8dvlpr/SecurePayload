@@ -1,0 +1,41 @@
+name: Sync Composer Lock
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'composer.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    runs-on: ubuntu-latest
+    # Hindari loop tak terbatas saat bot push commit lock.
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: sodium, curl, json, mbstring
+          coverage: none
+
+      - name: Update composer.lock
+        run: composer update --lock --no-install
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet composer.lock; then
+            echo "composer.lock sudah sinkron"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add composer.lock
+          git commit -m "chore: sync composer.lock after composer.json change"
+          git push

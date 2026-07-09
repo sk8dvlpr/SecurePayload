@@ -22,6 +22,8 @@ jobs:
           coverage: none
       - name: Validate composer.json
         run: composer validate --no-check-publish
+      - name: Sync composer.lock
+        run: composer update --lock --no-install
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
       - name: Lint (syntax)
@@ -44,6 +46,8 @@ jobs:
           php-version: '8.2'
           extensions: sodium, curl, json, mbstring
           coverage: none
+      - name: Sync composer.lock
+        run: composer update --lock --no-install
       - name: Install core dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
       - name: Install package dependencies
@@ -66,6 +70,8 @@ jobs:
           php-version: '8.2'
           extensions: sodium, json
           coverage: none
+      - name: Sync composer.lock
+        run: composer update --lock --no-install
       - name: Install PHP dependencies (interop)
         run: composer install --prefer-dist --no-interaction --no-progress
       - name: Setup Node.js
@@ -99,6 +105,8 @@ jobs:
           php-version: '8.2'
           extensions: sodium, json
           coverage: none
+      - name: Sync composer.lock
+        run: composer update --lock --no-install
       - name: Install PHP dependencies (interop)
         run: composer install --prefer-dist --no-interaction --no-progress
       - name: Run Go SDK tests
