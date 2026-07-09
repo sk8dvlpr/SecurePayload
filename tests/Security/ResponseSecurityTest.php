@@ -153,4 +153,123 @@ final class ResponseSecurityTest extends TestCase
         $this->assertFalse($res['ok']);
         $this->assertStringContainsString('Timestamp response', $res['error']);
     }
+
+    public function testTamperedEd25519ResponseBodyRejected(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('ext-sodium required');
+        }
+
+        $clientKp = sodium_crypto_sign_keypair();
+        $serverKp = sodium_crypto_sign_keypair();
+        $clientPub = base64_encode(sodium_crypto_sign_publickey($clientKp));
+        $clientSec = base64_encode(sodium_crypto_sign_secretkey($clientKp));
+        $serverPub = base64_encode(sodium_crypto_sign_publickey($serverKp));
+        $serverSec = base64_encode(sodium_crypto_sign_secretkey($serverKp));
+
+        $client = new SecurePayload([
+            'mode' => 'hmac',
+            'signAlg' => 'ed25519',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'ed25519SecretKeyB64' => $clientSec,
+            'ed25519PublicKeyServerB64' => $serverPub,
+        ]);
+        [$reqHeaders] = $client->buildHeadersAndBody('https://api/v1/x', 'POST', ['ping' => 1]);
+
+        $server = new SecurePayload([
+            'mode' => 'hmac',
+            'signAlg' => 'ed25519',
+            'keyLoader' => fn($c, $k) => [
+                'ed25519PublicKeyB64' => $clientPub,
+                'ed25519SecretKeyServerB64' => $serverSec,
+            ],
+        ]);
+        [$respHeaders, $respBody] = $server->buildResponse($reqHeaders, ['amount' => 100]);
+
+        $tampered = json_encode(['amount' => 999999]);
+        $res = $client->verifyResponse($respHeaders, $tampered, $reqHeaders[SecurePayload::HX_NONCE]);
+        $this->assertFalse($res['ok'], 'Response body yang diubah seharusnya ditolak.');
+    }
+
+    public function testEd25519ResponseRelocationToDifferentRequestRejected(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('ext-sodium required');
+        }
+
+        $clientKp = sodium_crypto_sign_keypair();
+        $serverKp = sodium_crypto_sign_keypair();
+        $clientPub = base64_encode(sodium_crypto_sign_publickey($clientKp));
+        $clientSec = base64_encode(sodium_crypto_sign_secretkey($clientKp));
+        $serverPub = base64_encode(sodium_crypto_sign_publickey($serverKp));
+        $serverSec = base64_encode(sodium_crypto_sign_secretkey($serverKp));
+
+        $client = new SecurePayload([
+            'mode' => 'hmac',
+            'signAlg' => 'ed25519',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'ed25519SecretKeyB64' => $clientSec,
+            'ed25519PublicKeyServerB64' => $serverPub,
+        ]);
+        $server = new SecurePayload([
+            'mode' => 'hmac',
+            'signAlg' => 'ed25519',
+            'keyLoader' => fn($c, $k) => [
+                'ed25519PublicKeyB64' => $clientPub,
+                'ed25519SecretKeyServerB64' => $serverSec,
+            ],
+        ]);
+
+        [$reqA] = $client->buildHeadersAndBody('https://api/v1/a', 'POST', ['a' => 1]);
+        [$reqB] = $client->buildHeadersAndBody('https://api/v1/b', 'POST', ['b' => 2]);
+
+        [$respHeaders, $respBody] = $server->buildResponse($reqA, ['for' => 'A']);
+
+        $res = $client->verifyResponse($respHeaders, $respBody, $reqB[SecurePayload::HX_NONCE]);
+        $this->assertFalse($res['ok'], 'Response tidak boleh valid untuk nonce request lain (relocation).');
+
+        $ok = $client->verifyResponse($respHeaders, $respBody, $reqA[SecurePayload::HX_NONCE]);
+        $this->assertTrue($ok['ok'], $ok['error'] ?? '');
+    }
+
+    public function testBothModeEd25519RejectsResponseWithoutAeadHeaders(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('ext-sodium required');
+        }
+
+        $clientKp = sodium_crypto_sign_keypair();
+        $serverKp = sodium_crypto_sign_keypair();
+        $aead = $this->aeadKeyB64();
+
+        $client = new SecurePayload([
+            'mode' => 'both',
+            'signAlg' => 'ed25519',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'ed25519SecretKeyB64' => base64_encode(sodium_crypto_sign_secretkey($clientKp)),
+            'ed25519PublicKeyServerB64' => base64_encode(sodium_crypto_sign_publickey($serverKp)),
+            'aeadKeyB64' => $aead,
+        ]);
+        [$reqHeaders] = $client->buildHeadersAndBody('https://api/v1/x', 'POST', ['ping' => 1]);
+
+        $server = new SecurePayload([
+            'mode' => 'both',
+            'signAlg' => 'ed25519',
+            'keyLoader' => fn($c, $k) => [
+                'aeadKeyB64' => $aead,
+                'ed25519PublicKeyB64' => base64_encode(sodium_crypto_sign_publickey($clientKp)),
+                'ed25519SecretKeyServerB64' => base64_encode(sodium_crypto_sign_secretkey($serverKp)),
+            ],
+        ]);
+        [$respHeaders, $respBody] = $server->buildResponse($reqHeaders, ['data' => 1]);
+
+        unset($respHeaders[SecurePayload::HX_RESP_AEAD_ALG], $respHeaders[SecurePayload::HX_RESP_AEAD_NONCE]);
+
+        $res = $client->verifyResponse($respHeaders, $respBody, $reqHeaders[SecurePayload::HX_NONCE]);
+        $this->assertFalse($res['ok']);
+        $this->assertStringContainsString('mewajibkan enkripsi AEAD', $res['error']);
+    }
 }

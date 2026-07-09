@@ -90,6 +90,18 @@ final class KeyManager
             'secretB64' => base64_encode(sodium_crypto_sign_secretkey($pair)),
         ];
     }
+
+    /**
+     * Generate pasangan kunci Ed25519 untuk server (signing response).
+     *
+     * @return array{publicB64:string, secretB64:string}
+     * @throws RuntimeException Jika ekstensi sodium tidak tersedia.
+     */
+    public function generateEd25519ServerKeyPair(): array
+    {
+        return $this->generateEd25519KeyPair();
+    }
+
 }
 
 /**
@@ -104,13 +116,16 @@ final class GeneratedKeyResult
         public string $hmacSecret,
         public string $aeadKeyB64,
         public ?string $wrappedKeyB64,
-        public ?string $kekId
+        public ?string $kekId,
+        public ?string $ed25519PublicB64 = null,
+        public ?string $ed25519ServerSecretB64 = null,
+        public ?string $ed25519ServerPublicB64 = null
     ) {
     }
 
     public function toArray(): array
     {
-        return [
+        $data = [
             'client_id' => $this->clientId,
             'key_id' => $this->keyId,
             'hmac_secret' => $this->hmacSecret,
@@ -120,45 +135,71 @@ final class GeneratedKeyResult
             'wrapped_b64' => $this->wrappedKeyB64,
             'kek_id' => $this->kekId,
         ];
+
+        if ($this->ed25519PublicB64 !== null) {
+            $data['ed25519_public_b64'] = $this->ed25519PublicB64;
+        }
+        if ($this->ed25519ServerSecretB64 !== null) {
+            $data['ed25519_server_secret_b64'] = $this->ed25519ServerSecretB64;
+        }
+        if ($this->ed25519ServerPublicB64 !== null) {
+            $data['ed25519_server_public_b64'] = $this->ed25519ServerPublicB64;
+        }
+
+        return $data;
     }
 
     /**
      * Buat statement SQL INSERT untuk database.
      * Secara otomatis men-set NULL pada kolom AEAD plaintext jika wrapped key tersedia (Keamanan++).
+     *
+     * @param string $tableName        Nama tabel tujuan.
      */
-    public function toSqlInsert(string $tableName = 'secure_keys'): string
-    {
-        // Nama tabel di-interpolasi langsung ke SQL (bukan nilai yang di-bind),
-        // jadi wajib divalidasi dengan whitelist untuk mencegah SQL injection.
+    public function toSqlInsert(
+string $tableName = 'secure_keys'): string {
         $tableName = $this->qIdentifier($tableName);
 
-        $hmacSql = $this->q($this->hmacSecret);
+        $columns = ['client_id', 'key_id', 'hmac_secret', 'aead_key_b64', 'wrapped_b64', 'kek_id'];
+        $values = [
+            $this->q($this->clientId),
+            $this->q($this->keyId),
+            $this->q($this->hmacSecret),
+        ];
+
         $kekSql = $this->kekId ? $this->q($this->kekId) : 'NULL';
 
         if ($this->wrappedKeyB64) {
-            // Secure Mode: Simpan Wrapped Key, AEAD Plaintext NULL
             $wrapSql = $this->q($this->wrappedKeyB64);
-            return sprintf(
-                "INSERT INTO `%s` (client_id, key_id, hmac_secret, aead_key_b64, wrapped_b64, kek_id) VALUES (%s, %s, %s, NULL, %s, %s);",
-                $tableName,
-                $this->q($this->clientId),
-                $this->q($this->keyId),
-                $hmacSql,
-                $wrapSql,
-                $kekSql
-            );
+            $values[] = 'NULL';
+            $values[] = $wrapSql;
+            $values[] = $kekSql;
         } else {
-            // Plain Mode: Simpan AEAD Plaintext, Wrapped NULL
             $aeadSql = $this->q($this->aeadKeyB64);
-            return sprintf(
-                "INSERT INTO `%s` (client_id, key_id, hmac_secret, aead_key_b64, wrapped_b64, kek_id) VALUES (%s, %s, %s, %s, NULL, NULL);",
-                $tableName,
-                $this->q($this->clientId),
-                $this->q($this->keyId),
-                $hmacSql,
-                $aeadSql
-            );
+            $values[] = $aeadSql;
+            $values[] = 'NULL';
+            $values[] = 'NULL';
         }
+
+        if ($this->ed25519PublicB64 !== null && $this->ed25519PublicB64 !== '') {
+            $columns[] = 'ed25519_public_b64';
+            $values[] = $this->q($this->ed25519PublicB64);
+        }
+        if ($this->ed25519ServerSecretB64 !== null && $this->ed25519ServerSecretB64 !== '') {
+            $columns[] = 'ed25519_server_secret_b64';
+            $values[] = $this->q($this->ed25519ServerSecretB64);
+        }
+        if ($this->ed25519ServerPublicB64 !== null && $this->ed25519ServerPublicB64 !== '') {
+            $columns[] = 'ed25519_server_public_b64';
+            $values[] = $this->q($this->ed25519ServerPublicB64);
+        }
+
+
+        return sprintf(
+            'INSERT INTO `%s` (%s) VALUES (%s);',
+            $tableName,
+            implode(', ', $columns),
+            implode(', ', $values)
+        );
     }
 
     private function q(string $s): string
@@ -184,3 +225,4 @@ final class GeneratedKeyResult
         return $id;
     }
 }
+

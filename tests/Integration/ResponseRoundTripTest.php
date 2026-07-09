@@ -130,4 +130,77 @@ final class ResponseRoundTripTest extends TestCase
         $res = $client->verifyResponse($respHeaders, $respBody, $reqHeaders[SecurePayload::HX_NONCE]);
         $this->assertTrue($res['ok'], $res['error'] ?? '');
     }
+
+    public function testEd25519ResponseRoundTripHmacMode(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('ext-sodium required');
+        }
+
+        $clientKp = sodium_crypto_sign_keypair();
+        $serverKp = sodium_crypto_sign_keypair();
+
+        $client = new SecurePayload([
+            'mode' => 'hmac',
+            'signAlg' => 'ed25519',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'ed25519SecretKeyB64' => base64_encode(sodium_crypto_sign_secretkey($clientKp)),
+            'ed25519PublicKeyServerB64' => base64_encode(sodium_crypto_sign_publickey($serverKp)),
+        ]);
+        [$reqHeaders] = $client->buildHeadersAndBody('https://api/v1/x', 'POST', ['ping' => 1]);
+
+        $server = new SecurePayload([
+            'mode' => 'hmac',
+            'signAlg' => 'ed25519',
+            'keyLoader' => fn($c, $k) => [
+                'ed25519PublicKeyB64' => base64_encode(sodium_crypto_sign_publickey($clientKp)),
+                'ed25519SecretKeyServerB64' => base64_encode(sodium_crypto_sign_secretkey($serverKp)),
+            ],
+        ]);
+        [$respHeaders, $respBody] = $server->buildResponse($reqHeaders, ['pong' => true, 'val' => 42]);
+
+        $res = $client->verifyResponse($respHeaders, $respBody, $reqHeaders[SecurePayload::HX_NONCE]);
+        $this->assertTrue($res['ok'], $res['error'] ?? '');
+        $this->assertSame('HMAC', $res['mode']);
+        $this->assertSame(['pong' => true, 'val' => 42], $res['json']);
+    }
+
+    public function testEd25519ResponseRoundTripBothMode(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('ext-sodium required');
+        }
+
+        $clientKp = sodium_crypto_sign_keypair();
+        $serverKp = sodium_crypto_sign_keypair();
+        $aead = $this->aeadKeyB64();
+
+        $client = new SecurePayload([
+            'mode' => 'both',
+            'signAlg' => 'ed25519',
+            'clientId' => 'c1',
+            'keyId' => 'k1',
+            'ed25519SecretKeyB64' => base64_encode(sodium_crypto_sign_secretkey($clientKp)),
+            'ed25519PublicKeyServerB64' => base64_encode(sodium_crypto_sign_publickey($serverKp)),
+            'aeadKeyB64' => $aead,
+        ]);
+        [$reqHeaders] = $client->buildHeadersAndBody('https://api/v1/x', 'POST', ['ping' => 1]);
+
+        $server = new SecurePayload([
+            'mode' => 'both',
+            'signAlg' => 'ed25519',
+            'keyLoader' => fn($c, $k) => [
+                'aeadKeyB64' => $aead,
+                'ed25519PublicKeyB64' => base64_encode(sodium_crypto_sign_publickey($clientKp)),
+                'ed25519SecretKeyServerB64' => base64_encode(sodium_crypto_sign_secretkey($serverKp)),
+            ],
+        ]);
+        [$respHeaders, $respBody] = $server->buildResponse($reqHeaders, ['data' => 'aman']);
+
+        $res = $client->verifyResponse($respHeaders, $respBody, $reqHeaders[SecurePayload::HX_NONCE]);
+        $this->assertTrue($res['ok'], $res['error'] ?? '');
+        $this->assertSame('BOTH', $res['mode']);
+        $this->assertSame(['data' => 'aman'], $res['json']);
+    }
 }
