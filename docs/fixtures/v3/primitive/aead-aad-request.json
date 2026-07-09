@@ -1,0 +1,13 @@
+{
+    "id": "aead-aad-request",
+    "input": {
+        "version": "3",
+        "timestamp": "1700000000",
+        "bound_headers": {
+            "x-request-id": "trace-abc-123"
+        }
+    },
+    "expected": {
+        "aad": "v3\nts=1700000000\nh:x-request-id=trace-abc-123"
+    }
+}

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sk8dvlpr/securepayload/docs/fixtures/schema.json",
+  "title": "SecurePayload Protocol Fixture",
+  "description": "JSON test vectors for SecurePayload protocol v3 conformance (primitive, wire, negative).",
+  "oneOf": [
+    { "$ref": "#/$defs/primitiveFixture" },
+    { "$ref": "#/$defs/wireFixture" },
+    { "$ref": "#/$defs/negativeFixture" },
+    { "$ref": "#/$defs/keysFixture" }
+  ],
+  "$defs": {
+    "keysFixture": {
+      "type": "object",
+      "required": ["clientId", "keyId", "hmacSecret", "aeadKeyB64"],
+      "properties": {
+        "clientId": { "type": "string" },
+        "keyId": { "type": "string" },
+        "hmacSecret": { "type": "string", "minLength": 32 },
+        "aeadKeyB64": { "type": "string" },
+        "ed25519ClientSecretB64": { "type": "string" },
+        "ed25519ClientPublicB64": { "type": "string" },
+        "ed25519ServerSecretB64": { "type": "string" },
+        "ed25519ServerPublicB64": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "configBlock": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["hmac", "aead", "both"] },
+        "signAlg": { "enum": ["hmac", "ed25519"] },
+        "deriveKeys": { "type": "boolean" },
+        "bindHeaders": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "protocol_version": { "type": "string" },
+        "server_config": {
+          "type": "object",
+          "properties": {
+            "signAlg": { "enum": ["hmac", "ed25519"] }
+          }
+        }
+      }
+    },
+    "fixedBlock": {
+      "type": "object",
+      "required": ["timestamp", "nonce_b64", "resp_timestamp", "resp_nonce_b64"],
+      "properties": {
+        "timestamp": { "type": "integer" },
+        "nonce_b64": { "type": "string" },
+        "resp_timestamp": { "type": "integer" },
+        "resp_nonce_b64": { "type": "string" }
+      }
+    },
+    "requestBlock": {
+      "type": "object",
+      "required": ["method", "path", "query", "payload"],
+      "properties": {
+        "method": { "type": "string" },
+        "path": { "type": "string" },
+        "query": { "type": "object" },
+        "payload": {},
+        "extra_headers": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "primitiveFixture": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "input": { "type": "object" },
+        "expected": {},
+        "cases": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "wireFixture": {
+      "type": "object",
+      "required": ["id", "protocol_version", "config", "fixed", "request", "expected"],
+      "properties": {
+        "id": { "type": "string" },
+        "protocol_version": { "type": "string" },
+        "keys_ref": { "type": "string", "default": "standard" },
+        "config": { "$ref": "#/$defs/configBlock" },
+        "fixed": { "$ref": "#/$defs/fixedBlock" },
+        "request": { "$ref": "#/$defs/requestBlock" },
+        "expected": {
+          "type": "object",
+          "required": ["headers", "body"],
+          "properties": {
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+            "body": { "type": "string" },
+            "response": {
+              "type": "object",
+              "properties": {
+                "headers": { "type": "object" },
+                "body": { "type": "string" },
+                "payload": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "negativeFixture": {
+      "allOf": [
+        { "$ref": "#/$defs/wireFixture" },
+        {
+          "type": "object",
+          "properties": {
+            "tamper": { "type": "string" },
+            "server_config": { "type": "object" },
+            "expected_failure": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

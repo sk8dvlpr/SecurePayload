@@ -1,0 +1,27 @@
+{
+    "id": "canonical-query",
+    "cases": [
+        {
+            "input": {
+                "z": "last",
+                "a": "first",
+                "m": "middle"
+            },
+            "expected": "a=first&m=middle&z=last"
+        },
+        {
+            "input": [],
+            "expected": ""
+        },
+        {
+            "input": {
+                "key": "a b",
+                "arr": [
+                    "x",
+                    "y"
+                ]
+            },
+            "expected": "arr=x%2Cy&key=a%20b"
+        }
+    ]
+}

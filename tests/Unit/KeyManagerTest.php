@@ -168,6 +168,15 @@ final class KeyManagerTest extends TestCase
         $this->assertStringContainsString("'" . $kp->hmacSecret . "', NULL, '" . $kp->wrappedKeyB64 . "', '" . $kekId . "'", $sql);
     }
 
+    public function testToSqlInsert_RejectsMaliciousTableName(): void
+    {
+        $km = new KeyManager();
+        $kp = $km->generateKeyPair('c9', 'k9', null);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $kp->toSqlInsert('secure_keys`; DROP TABLE users; --');
+    }
+
     public function testToArray_ContainsAllExpectedFields(): void
     {
         $km = new KeyManager();

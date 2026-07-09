@@ -1,0 +1,10 @@
+{
+    "id": "resp-aead-nonce",
+    "input": {
+        "resp_nonce_b64": "AgICAgICAgICAgICAgICAg==",
+        "req_nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ=="
+    },
+    "expected": {
+        "nonce_hex": "badcc7a3e4c6e3260202209a9c30e329a4113b5b45e8900f"
+    }
+}

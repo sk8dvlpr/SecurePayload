@@ -51,3 +51,14 @@ Thumbs.db
 # --- AGENTS ---
 .skills/
 .prompts/
+
+# --- Local dev tooling (do not commit) ---
+/.rtk/
+/.gitnexus/
+/.claude/settings.local.json
+/.claude/agents/
+/.claude/skills/gitnexus/
+
+# --- Commit tooling temp (local) ---
+/.phase_snapshots/
+/*.diff

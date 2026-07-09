@@ -1,0 +1,55 @@
+{
+    "id": "roundtrip-aead-v3",
+    "protocol_version": "3",
+    "config": {
+        "mode": "aead",
+        "signAlg": "hmac",
+        "deriveKeys": false,
+        "bindHeaders": []
+    },
+    "keys_ref": "standard",
+    "fixed": {
+        "timestamp": 1700000000,
+        "nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "resp_timestamp": 1700000060,
+        "resp_nonce_b64": "AgICAgICAgICAgICAgICAg=="
+    },
+    "request": {
+        "method": "POST",
+        "path": "/v1/pay",
+        "query": {
+            "a": "1",
+            "b": "2"
+        },
+        "payload": {
+            "amount": 100
+        },
+        "extra_headers": []
+    },
+    "expected": {
+        "headers": {
+            "X-Client-Id": "conf-client",
+            "X-Key-Id": "conf-key-v1",
+            "X-Timestamp": "1700000000",
+            "X-Nonce": "AQEBAQEBAQEBAQEBAQEBAQ==",
+            "X-Signature-Version": "3",
+            "X-Canonical-Request": "UE9TVAovdjEvcGF5CmE9MSZiPTI=",
+            "X-AEAD-Algorithm": "XCHACHA20-POLY1305-IETF",
+            "X-AEAD-Nonce": "If4zo2Vns6bEzDWNngNcSt9//Q8HTlFn"
+        },
+        "body": "{\"__aead_b64\":\"C5b/F0hToExD/akKM/uCzYnUS0W440jZoYn/BHBt\"}",
+        "response": {
+            "headers": {
+                "X-Resp-Timestamp": "1700000060",
+                "X-Resp-Nonce": "AgICAgICAgICAgICAgICAg==",
+                "X-Resp-Signature-Version": "3",
+                "X-Resp-AEAD-Algorithm": "XCHACHA20-POLY1305-IETF",
+                "X-Resp-AEAD-Nonce": "utzHo+TG4yYCAiCanDDjKaQRO1tF6JAP"
+            },
+            "body": "{\"__aead_b64\":\"Mb8e5tga7N45Q5OxT2IQa66QzNhGKyRbxQok4aHY9w==\"}",
+            "payload": {
+                "status": "ok"
+            }
+        }
+    }
+}

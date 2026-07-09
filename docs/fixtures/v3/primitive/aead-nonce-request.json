@@ -1,0 +1,12 @@
+{
+    "id": "aead-nonce-request",
+    "input": {
+        "nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "method": "POST",
+        "path": "/v1/pay",
+        "query_string": "a=1&b=2"
+    },
+    "expected": {
+        "nonce_hex": "21fe33a36567b3a6c4cc358d9e035c4adf7ffd0f074e5167"
+    }
+}

@@ -20,6 +20,10 @@ use RuntimeException;
  * - wrapped_b64 (string|null)
  * - kek_id (string|null)
  * - ed25519_public_b64 (string|null)  -- opsional, hanya dibaca jika opts['useEd25519']=true
+ * - ed25519_server_secret_b64 (string|null) -- opsional, jika opts['useEd25519Server']=true
+ * - ed25519_server_public_b64 (string|null) -- opsional, jika opts['useEd25519Server']=true
+ * - status (string|null) -- opsional, jika opts['useKeyLifecycle']=true (active/retiring/revoked)
+ * - valid_until (integer|null) -- unix timestamp akhir grace untuk status retiring
  */
 final class DbKeyProvider implements SecureKeyProvider
 {
@@ -33,6 +37,15 @@ final class DbKeyProvider implements SecureKeyProvider
     private string $colKekId;
     private string $colEd25519Pub;
     private bool $useEd25519;
+    private string $colEd25519ServerSecret;
+    private string $colEd25519ServerPub;
+    private bool $useEd25519Server;
+    private bool $useKeyLifecycle;
+    private string $colStatus;
+    private string $colValidUntil;
+
+    /** @var callable */
+    private $clock;
 
     private ?Kms $kms;
 
@@ -42,8 +55,14 @@ final class DbKeyProvider implements SecureKeyProvider
      *                    ['table'=>'...', 'colClient'=>'...', 'colKey'=>'...',
      *                     'colHmac'=>'...', 'colAeadB64'=>'...',
      *                     'colWrapped'=>'...', 'colKekId'=>'...',
-     *                     'colEd25519Pub'=>'...', 'useEd25519'=>bool]
-     *                    Set 'useEd25519'=>true untuk membaca kolom public key Ed25519.
+     *                     'colEd25519Pub'=>'...', 'useEd25519'=>bool,
+     *                     'colEd25519ServerSecret'=>'...', 'colEd25519ServerPub'=>'...',
+     *                     'useEd25519Server'=>bool,
+     *                     'useKeyLifecycle'=>bool, 'colStatus'=>'...', 'colValidUntil'=>'...',
+     *                     'clock'=>callable]
+     *                    Set 'useEd25519'=>true untuk membaca kolom public key Ed25519 client.
+     *                    Set 'useEd25519Server'=>true untuk kolom kunci Ed25519 server (response).
+     *                    Set 'useKeyLifecycle'=>true untuk filter status active/retiring/revoked.
      *                    CATATAN: Nama tabel dan kolom hanya boleh mengandung [A-Za-z0-9_].
      *                             Jangan gunakan SQL Reserved Words sebagai nama kolom.
      * @param Kms|null $kms Instance KMS untuk membuka kunci AEAD yang terbungkus (wrapped).
@@ -62,15 +81,38 @@ final class DbKeyProvider implements SecureKeyProvider
         // Kolom Ed25519 bersifat opt-in agar kompatibel dengan skema lama yang
         // belum memiliki kolom ini. Aktifkan via opts['useEd25519'] = true.
         $this->useEd25519 = (bool) ($opts['useEd25519'] ?? false);
+        $this->colEd25519ServerSecret = $opts['colEd25519ServerSecret'] ?? 'ed25519_server_secret_b64';
+        $this->colEd25519ServerPub = $opts['colEd25519ServerPub'] ?? 'ed25519_server_public_b64';
+        $this->useEd25519Server = (bool) ($opts['useEd25519Server'] ?? false);
+        $this->useKeyLifecycle = (bool) ($opts['useKeyLifecycle'] ?? false);
+        $this->colStatus = $opts['colStatus'] ?? 'status';
+        $this->colValidUntil = $opts['colValidUntil'] ?? 'valid_until';
+        $this->clock = $opts['clock'] ?? static fn (): int => time();
         $this->kms = $kms;
     }
 
     /**
-     * @return array{hmacSecret:?string,aeadKeyB64:?string,ed25519PublicKeyB64:?string}
+     * @return array{
+     *   hmacSecret:?string,
+     *   aeadKeyB64:?string,
+     *   ed25519PublicKeyB64:?string,
+     *   ed25519SecretKeyServerB64:?string,
+     *   ed25519PublicKeyServerB64:?string,
+     *   keyStatus?:string,
+     *   validUntil?:?int
+     * }
      * @throws RuntimeException Jika terjadi kesalahan query atau dekripsi KMS.
      */
     public function load(string $clientId, string $keyId): array
     {
+        $empty = [
+            'hmacSecret' => null,
+            'aeadKeyB64' => null,
+            'ed25519PublicKeyB64' => null,
+            'ed25519SecretKeyServerB64' => null,
+            'ed25519PublicKeyServerB64' => null,
+        ];
+
         $cols = [
             $this->q($this->colHmac),
             $this->q($this->colAeadB64),
@@ -79,6 +121,14 @@ final class DbKeyProvider implements SecureKeyProvider
         ];
         if ($this->useEd25519) {
             $cols[] = $this->q($this->colEd25519Pub);
+        }
+        if ($this->useEd25519Server) {
+            $cols[] = $this->q($this->colEd25519ServerSecret);
+            $cols[] = $this->q($this->colEd25519ServerPub);
+        }
+        if ($this->useKeyLifecycle) {
+            $cols[] = $this->q($this->colStatus);
+            $cols[] = $this->q($this->colValidUntil);
         }
 
         $sql = sprintf(
@@ -94,8 +144,17 @@ final class DbKeyProvider implements SecureKeyProvider
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$row) {
-            // Tidak ditemukan bukan error, return null values agar SecurePayload handle auth failure
-            return ['hmacSecret' => null, 'aeadKeyB64' => null, 'ed25519PublicKeyB64' => null];
+            return $empty;
+        }
+
+        if ($this->useKeyLifecycle) {
+            $status = $row[$this->colStatus] ?? null;
+            $validUntil = $row[$this->colValidUntil] ?? null;
+            $validUntilInt = ($validUntil !== null && $validUntil !== '') ? (int) $validUntil : null;
+
+            if (!$this->isKeyLoadable($status, $validUntilInt)) {
+                return $empty;
+            }
         }
 
         $hmacSecret = $row[$this->colHmac] ?? null;
@@ -103,28 +162,25 @@ final class DbKeyProvider implements SecureKeyProvider
         $wrappedB64 = $row[$this->colWrapped] ?? null;
         $kekId = $row[$this->colKekId] ?? null;
         $ed25519Pub = $this->useEd25519 ? ($row[$this->colEd25519Pub] ?? null) : null;
+        $ed25519ServerSecret = $this->useEd25519Server ? ($row[$this->colEd25519ServerSecret] ?? null) : null;
+        $ed25519ServerPub = $this->useEd25519Server ? ($row[$this->colEd25519ServerPub] ?? null) : null;
 
-        // Logika Unwrapping:
-        // Jika AEAD Key belum ada (kosong) TAPI ada wrapped key + kek_id, coba buka via KMS.
         if (
             empty($aeadKeyB64) &&
             is_string($wrappedB64) && $wrappedB64 !== '' &&
             is_string($kekId) && $kekId !== ''
         ) {
             if (!$this->kms) {
-                // Konfigurasi salah: Ada data encrypted tapi tidak ada KMS provider
                 throw new RuntimeException('Data kunci terenkripsi ditemukan, tapi KMS provider belum dikonfigurasi di DbKeyProvider.');
             }
 
             try {
-                // Context AAD harus sesuai saat pembungkusan (wrapping)
                 $aeadKeyRaw = $this->kms->unwrap($kekId, $wrappedB64, [
                     'client_id' => $clientId,
                     'key_id' => $keyId,
                     'purpose' => 'securepayload-aead-key',
                 ]);
             } catch (\Exception $e) {
-                // Wrap error KMS agar lebih jelas
                 throw new RuntimeException('Gagal membuka kunci (unwrap) via KMS: ' . $e->getMessage(), 0, $e);
             }
 
@@ -134,11 +190,42 @@ final class DbKeyProvider implements SecureKeyProvider
             $aeadKeyB64 = base64_encode($aeadKeyRaw);
         }
 
-        return [
+        $result = [
             'hmacSecret' => ($hmacSecret !== null && $hmacSecret !== '') ? (string) $hmacSecret : null,
             'aeadKeyB64' => ($aeadKeyB64 !== null && $aeadKeyB64 !== '') ? (string) $aeadKeyB64 : null,
             'ed25519PublicKeyB64' => ($ed25519Pub !== null && $ed25519Pub !== '') ? (string) $ed25519Pub : null,
+            'ed25519SecretKeyServerB64' => ($ed25519ServerSecret !== null && $ed25519ServerSecret !== '') ? (string) $ed25519ServerSecret : null,
+            'ed25519PublicKeyServerB64' => ($ed25519ServerPub !== null && $ed25519ServerPub !== '') ? (string) $ed25519ServerPub : null,
         ];
+
+        if ($this->useKeyLifecycle) {
+            $status = $row[$this->colStatus] ?? null;
+            $validUntil = $row[$this->colValidUntil] ?? null;
+            $normalizedStatus = ($status === null || $status === '') ? KeyStatus::ACTIVE : (string) $status;
+            $result['keyStatus'] = $normalizedStatus;
+            $result['validUntil'] = ($validUntil !== null && $validUntil !== '') ? (int) $validUntil : null;
+        }
+
+        return $result;
+    }
+
+    private function isKeyLoadable(?string $status, ?int $validUntil): bool
+    {
+        $now = ($this->clock)();
+
+        if ($status === null || $status === '') {
+            return true;
+        }
+
+        if ($status === KeyStatus::ACTIVE) {
+            return true;
+        }
+
+        if ($status === KeyStatus::RETIRING) {
+            return $validUntil !== null && $validUntil >= $now;
+        }
+
+        return false;
     }
 
     /**

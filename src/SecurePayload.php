@@ -116,10 +116,16 @@ final class SecurePayload
     private ?string $hmacSecretRaw;
     private ?string $aeadKeyB64;
 
-    /** @var string|null Secret key Ed25519 (base64, 64 byte) untuk signing di sisi client */
+    /** @var string|null Secret key Ed25519 (base64, 64 byte) untuk signing request di sisi client */
     private ?string $ed25519SecretKeyB64;
 
-    /** @var callable(string,string): array{hmacSecret:?string,aeadKeyB64:?string}|null Fungsi untuk memuat kunci */
+    /** @var string|null Public key Ed25519 server (base64, 32 byte) untuk verifikasi response di sisi client */
+    private ?string $ed25519PublicKeyServerB64;
+
+    /** @var string|null Secret key Ed25519 server (base64, 64 byte) untuk signing response di sisi server */
+    private ?string $ed25519SecretKeyServerB64;
+
+    /** @var callable(string,string): array{hmacSecret:?string,aeadKeyB64:?string,ed25519PublicKeyB64:?string,ed25519SecretKeyServerB64:?string}|null Fungsi untuk memuat kunci */
     private $keyLoader;
 
     /** @var callable(string,int): bool|null Fungsi kustom untuk penyimpanan replay cache */
@@ -155,6 +161,15 @@ final class SecurePayload
      */
     private $onSecurityEvent;
 
+    /** @var callable(): int */
+    private $clock;
+
+    /** @var callable(): string */
+    private $nonceGenerator;
+
+    /** @var callable(): string */
+    private $respNonceGenerator;
+
     /**
      * Konstruktor SecurePayload
      *
@@ -167,7 +182,9 @@ final class SecurePayload
      * - clientId: ID Client (Wajib untuk mode Client)
      * - keyId: ID Key (Wajib untuk mode Client)
      * - hmacSecretRaw: Secret key untuk HMAC (Raw string, dipakai jika signAlg='hmac')
-     * - ed25519SecretKeyB64: Secret key Ed25519 base64 64-byte (Client, dipakai jika signAlg='ed25519')
+     * - ed25519SecretKeyB64: Secret key Ed25519 base64 64-byte (Client, signing request jika signAlg='ed25519')
+     * - ed25519PublicKeyServerB64: Public key Ed25519 server base64 32-byte (Client, verifikasi response jika signAlg='ed25519')
+     * - ed25519SecretKeyServerB64: Secret key Ed25519 server base64 64-byte (Server, signing response jika signAlg='ed25519')
      * - aeadKeyB64: Secret key untuk AEAD (Base64 string)
      * - keyLoader: Callable untuk memuat kunci di sisi server
      * - replayStore: Callable untuk custom storage replay protection.
@@ -195,6 +212,9 @@ final class SecurePayload
      *               tidak ditemukan, nonce mismatch). Untuk integrasi SIEM/rate-limit.
      *               Context TIDAK pernah memuat secret/plaintext. Exception dari
      *               callback ditelan (tidak memengaruhi verifikasi).
+     * - clock: Callable unix timestamp acuan (Default: time()). Dipakai verifikasi timestamp.
+     * - nonceGenerator: Callable nonce request base64 (Default: genNonceB64()).
+     * - respNonceGenerator: Callable nonce response base64 (Default: genNonceB64()).
      *
      * @param array{
      *   mode?: 'hmac'|'aead'|'both',
@@ -204,6 +224,8 @@ final class SecurePayload
      *   keyId?: string,
      *   hmacSecretRaw?: string|null,
      *   ed25519SecretKeyB64?: string|null,
+     *   ed25519PublicKeyServerB64?: string|null,
+     *   ed25519SecretKeyServerB64?: string|null,
      *   aeadKeyB64?: string|null,
      *   keyLoader?: callable|null,
      *   replayStore?: callable|null,
@@ -211,7 +233,10 @@ final class SecurePayload
      *   clockSkew?: int,
      *   bindHeaders?: list<string>,
      *   deriveKeys?: bool,
-     *   onSecurityEvent?: callable|null
+     *   onSecurityEvent?: callable|null,
+     *   clock?: callable|null,
+     *   nonceGenerator?: callable|null,
+     *   respNonceGenerator?: callable|null
      * } $opts
      * @throws SecurePayloadException Jika konfigurasi tidak valid
      */
@@ -234,6 +259,8 @@ final class SecurePayload
         }
         $this->aeadKeyB64 = $opts['aeadKeyB64'] ?? null;
         $this->ed25519SecretKeyB64 = $opts['ed25519SecretKeyB64'] ?? null;
+        $this->ed25519PublicKeyServerB64 = $opts['ed25519PublicKeyServerB64'] ?? null;
+        $this->ed25519SecretKeyServerB64 = $opts['ed25519SecretKeyServerB64'] ?? null;
         $this->signAlg = $opts['signAlg'] ?? 'hmac';
         $this->keyLoader = $opts['keyLoader'] ?? null;
         $this->replayStore = $opts['replayStore'] ?? null;
@@ -255,6 +282,9 @@ final class SecurePayload
 
         $hook = $opts['onSecurityEvent'] ?? null;
         $this->onSecurityEvent = is_callable($hook) ? $hook : null;
+        $this->clock = $opts['clock'] ?? static fn (): int => time();
+        $this->nonceGenerator = $opts['nonceGenerator'] ?? static fn (): string => self::genNonceB64();
+        $this->respNonceGenerator = $opts['respNonceGenerator'] ?? static fn (): string => self::genNonceB64();
 
         if (!in_array($this->mode, ['hmac', 'aead', 'both'], true)) {
             throw new SecurePayloadException('Mode tidak valid: ' . $this->mode, SecurePayloadException::BAD_REQUEST);
@@ -262,7 +292,7 @@ final class SecurePayload
         if (!in_array($this->signAlg, ['hmac', 'ed25519'], true)) {
             throw new SecurePayloadException('signAlg tidak valid: ' . $this->signAlg, SecurePayloadException::BAD_REQUEST);
         }
-        // Validasi panjang secret key Ed25519 jika disuplai (sisi client).
+        // Validasi panjang secret key Ed25519 client jika disuplai (signing request).
         if (
             $this->ed25519SecretKeyB64 !== null &&
             $this->ed25519SecretKeyB64 !== ''
@@ -271,6 +301,32 @@ final class SecurePayload
             if (!is_string($skRaw) || strlen($skRaw) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
                 throw new SecurePayloadException(
                     'Secret key Ed25519 tidak valid (harus base64 dari 64 byte)',
+                    SecurePayloadException::BAD_REQUEST
+                );
+            }
+        }
+        // Validasi public key Ed25519 server jika disuplai (verifikasi response di client).
+        if (
+            $this->ed25519PublicKeyServerB64 !== null &&
+            $this->ed25519PublicKeyServerB64 !== ''
+        ) {
+            $pkRaw = base64_decode($this->ed25519PublicKeyServerB64, true);
+            if (!is_string($pkRaw) || strlen($pkRaw) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+                throw new SecurePayloadException(
+                    'Public key Ed25519 server tidak valid (harus base64 dari 32 byte)',
+                    SecurePayloadException::BAD_REQUEST
+                );
+            }
+        }
+        // Validasi secret key Ed25519 server jika disuplai (signing response di server).
+        if (
+            $this->ed25519SecretKeyServerB64 !== null &&
+            $this->ed25519SecretKeyServerB64 !== ''
+        ) {
+            $skSrvRaw = base64_decode($this->ed25519SecretKeyServerB64, true);
+            if (!is_string($skSrvRaw) || strlen($skSrvRaw) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
+                throw new SecurePayloadException(
+                    'Secret key Ed25519 server tidak valid (harus base64 dari 64 byte)',
                     SecurePayloadException::BAD_REQUEST
                 );
             }
@@ -322,8 +378,8 @@ final class SecurePayload
         }
 
         $ver = $this->version;
-        $ts = (string) time();
-        $nonceB64 = self::genNonceB64();
+        $ts = (string) ($this->clock)();
+        $nonceB64 = ($this->nonceGenerator)();
 
         // Nilai header kritikal yang diikat ke AAD diambil dari header tambahan
         // yang akan benar-benar dikirim. Server membaca nilai yang sama dari
@@ -658,7 +714,7 @@ final class SecurePayload
             throw new SecurePayloadException('Format timestamp salah', SecurePayloadException::BAD_REQUEST, ['nilai' => $tsStr]);
         }
         $ts = (int) $tsStr;
-        $now = time();
+        $now = ($this->clock)();
 
         // Cek range waktu: tidak boleh masa depan (skew) dan tidak boleh terlalu lampau (ttl + skew)
         if ($ts > $now + $this->clockSkew || $ts < $now - ($this->replayTtl + $this->clockSkew)) {
@@ -1440,9 +1496,10 @@ final class SecurePayload
      * Response diikat ke nonce request asal (`X-Nonce`) sehingga tidak bisa dipindah
      * (replay/relocation) ke konteks request lain.
      *
-     * Catatan kunci: tanda tangan response SELALU memakai HMAC-SHA256 dengan secret
-     * bersama (bukan Ed25519), karena server tidak memegang private key client.
-     * Pada mode aead/both, autentisitas response dijamin oleh AEAD tag.
+     * Algoritma tanda tangan response mengikuti `signAlg` (mirror request):
+     * - `hmac`: HMAC-SHA256 dengan secret bersama.
+     * - `ed25519`: server menandatangani dengan secret key server; client memverifikasi
+     *   dengan public key server (`ed25519PublicKeyServerB64`).
      *
      * @param array<string,string> $requestHeaders Header request masuk (untuk ambil clientId/keyId/nonce).
      * @param array<mixed>          $payload        Data response.
@@ -1469,11 +1526,11 @@ final class SecurePayload
         }
 
         // Muat kunci response (server memakai keyLoader; fallback ke kunci instance).
-        [$hmacRaw, $aeadB64] = $this->resolveResponseKeys($cid, $kid);
+        [$hmacRaw, $aeadB64, $ed25519SecretServerB64] = $this->resolveResponseKeys($cid, $kid);
 
         $ver = $this->version;
-        $respTs = (string) time();
-        $respNonceB64 = self::genNonceB64();
+        $respTs = (string) ($this->clock)();
+        $respNonceB64 = ($this->respNonceGenerator)();
 
         $headers = [
             self::HX_RESP_TIMESTAMP => $respTs,
@@ -1507,20 +1564,28 @@ final class SecurePayload
             $headers[self::HX_RESP_AEAD_NONCE] = base64_encode($aeadNonce);
         }
 
-        // --- Tanda Tangan (mode hmac / both) ---
+        // --- Tanda Tangan (mode hmac / both) — algoritma mengikuti signAlg ---
         if ($this->mode === 'hmac' || $this->mode === 'both') {
-            if ($hmacRaw === null || $hmacRaw === '') {
-                throw new SecurePayloadException('Secret Key HMAC response tidak tersedia di server', SecurePayloadException::SERVER_ERROR);
-            }
-            if (strlen($hmacRaw) < 32) {
-                throw new SecurePayloadException('HMAC Secret response terlalu pendek (minimum 32 karakter)', SecurePayloadException::SERVER_ERROR);
-            }
-            // Tanda tangan dibuat atas plaintext (sama seperti jalur request mode both).
             $digestB64 = self::bodyDigestB64($plain);
             $msg = self::respMessage($ver, $reqNonceB64, $respTs, $respNonceB64, $digestB64);
-            $signKey = $this->deriveSubkey($hmacRaw, self::KDF_PURPOSE_SIGN_RESP);
-            $sigB64 = base64_encode(hash_hmac('sha256', $msg, $signKey, true));
-            $headers[self::HX_RESP_SIG_ALG] = self::HMAC_ALG;
+
+            if ($this->signAlg === 'ed25519') {
+                $this->ensureSodium();
+                $sk = $this->getEd25519SecretKeyServerRaw($ed25519SecretServerB64);
+                $sigB64 = base64_encode(sodium_crypto_sign_detached($msg, $sk));
+                $headers[self::HX_RESP_SIG_ALG] = self::ED25519_ALG;
+            } else {
+                if ($hmacRaw === null || $hmacRaw === '') {
+                    throw new SecurePayloadException('Secret Key HMAC response tidak tersedia di server', SecurePayloadException::SERVER_ERROR);
+                }
+                if (strlen($hmacRaw) < 32) {
+                    throw new SecurePayloadException('HMAC Secret response terlalu pendek (minimum 32 karakter)', SecurePayloadException::SERVER_ERROR);
+                }
+                $signKey = $this->deriveSubkey($hmacRaw, self::KDF_PURPOSE_SIGN_RESP);
+                $sigB64 = base64_encode(hash_hmac('sha256', $msg, $signKey, true));
+                $headers[self::HX_RESP_SIG_ALG] = self::HMAC_ALG;
+            }
+
             $headers[self::HX_RESP_BODY_DIGEST] = 'sha256=' . $digestB64;
             $headers[self::HX_RESP_SIGNATURE] = $sigB64;
         }
@@ -1595,7 +1660,7 @@ final class SecurePayload
             throw new SecurePayloadException('Format timestamp response salah', SecurePayloadException::BAD_REQUEST, ['nilai' => $respTs]);
         }
         $ts = (int) $respTs;
-        $now = time();
+        $now = ($this->clock)();
         if ($ts > $now + $this->clockSkew || $ts < $now - ($this->replayTtl + $this->clockSkew)) {
             throw new SecurePayloadException('Timestamp response di luar batas wajar', SecurePayloadException::UNAUTHORIZED, ['ts' => $ts, 'now' => $now]);
         }
@@ -1660,15 +1725,21 @@ final class SecurePayload
             $bodyForSig = $plain;
         }
 
-        // --- Verifikasi Tanda Tangan HMAC (mode hmac / both) ---
+        // --- Verifikasi Tanda Tangan (mode hmac / both) — algoritma mengikuti signAlg ---
         if ($this->mode === 'hmac' || $this->mode === 'both') {
             $alg = $H[self::upper(self::HX_RESP_SIG_ALG)] ?? '';
             $sigIn = $H[self::upper(self::HX_RESP_SIGNATURE)] ?? '';
             $digH = $H[self::upper(self::HX_RESP_BODY_DIGEST)] ?? '';
 
-            if ($alg !== self::HMAC_ALG || $sigIn === '' || $digH === '') {
-                throw new SecurePayloadException('Header tanda tangan response tidak lengkap/salah algoritma', SecurePayloadException::BAD_REQUEST);
+            $expectedAlg = $this->signAlg === 'ed25519' ? self::ED25519_ALG : self::HMAC_ALG;
+            if ($alg !== $expectedAlg || $sigIn === '' || $digH === '') {
+                throw new SecurePayloadException(
+                    'Header tanda tangan response tidak lengkap/salah algoritma',
+                    SecurePayloadException::BAD_REQUEST,
+                    ['terima' => $alg, 'ekspektasi' => $expectedAlg]
+                );
             }
+
             $digHVal = str_starts_with($digH, 'sha256=') ? substr($digH, 7) : '';
             if ($digHVal === '') {
                 throw new SecurePayloadException('Format digest response salah (harus sha256=...)', SecurePayloadException::BAD_REQUEST);
@@ -1679,16 +1750,35 @@ final class SecurePayload
                 throw new SecurePayloadException('Integritas Body Digest response gagal', SecurePayloadException::UNPROCESSABLE);
             }
 
-            $hmacRaw = $this->hmacSecretRaw;
-            if ($hmacRaw === null || $hmacRaw === '') {
-                throw new SecurePayloadException('Secret Key HMAC response tidak tersedia di client', SecurePayloadException::BAD_REQUEST);
-            }
-
             $msg = self::respMessage($this->version, $reqNonceB64, $respTs, $respNonceB64, $calcDig);
-            $signKey = $this->deriveSubkey($hmacRaw, self::KDF_PURPOSE_SIGN_RESP);
-            $sigB64 = base64_encode(hash_hmac('sha256', $msg, $signKey, true));
-            if (!hash_equals($sigB64, $sigIn)) {
-                throw new SecurePayloadException('Tanda Tangan response tidak valid', SecurePayloadException::UNAUTHORIZED);
+
+            if ($this->signAlg === 'ed25519') {
+                $this->ensureSodium();
+                $pub = base64_decode($this->ed25519PublicKeyServerB64 ?? '', true);
+                if (!is_string($pub) || strlen($pub) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+                    throw new SecurePayloadException(
+                        'Public key Ed25519 server tidak valid/tersedia di client',
+                        SecurePayloadException::BAD_REQUEST
+                    );
+                }
+                $sigRaw = base64_decode($sigIn, true);
+                if (!is_string($sigRaw) || strlen($sigRaw) !== SODIUM_CRYPTO_SIGN_BYTES) {
+                    throw new SecurePayloadException('Format signature Ed25519 response rusak', SecurePayloadException::BAD_REQUEST);
+                }
+                if (!sodium_crypto_sign_verify_detached($sigRaw, $msg, $pub)) {
+                    throw new SecurePayloadException('Tanda Tangan response (Ed25519) tidak valid', SecurePayloadException::UNAUTHORIZED);
+                }
+            } else {
+                $hmacRaw = $this->hmacSecretRaw;
+                if ($hmacRaw === null || $hmacRaw === '') {
+                    throw new SecurePayloadException('Secret Key HMAC response tidak tersedia di client', SecurePayloadException::BAD_REQUEST);
+                }
+
+                $signKey = $this->deriveSubkey($hmacRaw, self::KDF_PURPOSE_SIGN_RESP);
+                $sigB64 = base64_encode(hash_hmac('sha256', $msg, $signKey, true));
+                if (!hash_equals($sigB64, $sigIn)) {
+                    throw new SecurePayloadException('Tanda Tangan response tidak valid', SecurePayloadException::UNAUTHORIZED);
+                }
             }
 
             $result['mode'] = ($this->mode === 'both') ? 'BOTH' : 'HMAC';
@@ -1704,15 +1794,19 @@ final class SecurePayload
      * Menyelesaikan kunci untuk membangun response di sisi server.
      * Mengutamakan keyLoader (multi-client); fallback ke kunci instance.
      *
-     * @return array{0:?string,1:?string} Tuple [hmacSecret, aeadKeyB64]
+     * @return array{0:?string,1:?string,2:?string} Tuple [hmacSecret, aeadKeyB64, ed25519SecretKeyServerB64]
      */
     private function resolveResponseKeys(string $cid, string $kid): array
     {
         if ($this->keyLoader) {
             $keys = (array) call_user_func($this->keyLoader, $cid, $kid);
-            return [$keys['hmacSecret'] ?? null, $keys['aeadKeyB64'] ?? null];
+            return [
+                $keys['hmacSecret'] ?? null,
+                $keys['aeadKeyB64'] ?? null,
+                $keys['ed25519SecretKeyServerB64'] ?? null,
+            ];
         }
-        return [$this->hmacSecretRaw, $this->aeadKeyB64];
+        return [$this->hmacSecretRaw, $this->aeadKeyB64, $this->ed25519SecretKeyServerB64];
     }
 
     // --- Private & Internal Helpers ---
@@ -1881,6 +1975,24 @@ final class SecurePayload
         return $sk;
     }
 
+    /**
+     * Decode secret key Ed25519 server untuk signing response.
+     *
+     * @param string|null $fromLoader Nilai dari keyLoader; fallback ke kunci instance.
+     */
+    private function getEd25519SecretKeyServerRaw(?string $fromLoader = null): string
+    {
+        $b64 = ($fromLoader !== null && $fromLoader !== '') ? $fromLoader : ($this->ed25519SecretKeyServerB64 ?? '');
+        $sk = base64_decode($b64, true);
+        if (!is_string($sk) || strlen($sk) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
+            throw new SecurePayloadException(
+                'Secret key Ed25519 server tidak valid/tersedia (harus base64 dari 64 byte)',
+                SecurePayloadException::SERVER_ERROR
+            );
+        }
+        return $sk;
+    }
+
     private function getAeadKeyRaw(): string
     {
         $aeadKeyRaw = base64_decode($this->aeadKeyB64 ?? '', true);
@@ -1992,6 +2104,24 @@ final class SecurePayload
         return base64_encode(hash('sha256', $body, true));
     }
 
+    public static function buildRequestAeadAad(string $version, string $ts, array $boundHeaders = []): string
+    {
+        $parts = ['v' . $version, 'ts=' . $ts];
+        ksort($boundHeaders);
+        foreach ($boundHeaders as $name => $val) {
+            $parts[] = 'h:' . $name . '=' . $val;
+        }
+        return implode("\n", $parts);
+    }
+
+    /**
+     * AAD untuk enkripsi RESPONSE (publik untuk spesifikasi / conformance).
+     */
+    public static function buildResponseAeadAad(string $version, string $reqNonceB64, string $respTs): string
+    {
+        return 'resp-v' . $version . '|req=' . $reqNonceB64 . '|ts=' . $respTs;
+    }
+
     /**
      * Bentuk AAD (Additional Authenticated Data) untuk enkripsi REQUEST.
      *
@@ -2005,11 +2135,7 @@ final class SecurePayload
      */
     private function aeadAAD(string $version, string $ts, array $boundHeaders = []): string
     {
-        $parts = ['v' . $version, 'ts=' . $ts];
-        foreach ($boundHeaders as $name => $val) {
-            $parts[] = 'h:' . $name . '=' . $val;
-        }
-        return implode("\n", $parts);
+        return self::buildRequestAeadAad($version, $ts, $boundHeaders);
     }
 
     /**
@@ -2094,7 +2220,7 @@ final class SecurePayload
      */
     private function respAeadAAD(string $version, string $reqNonceB64, string $respTs): string
     {
-        return 'resp-v' . $version . '|req=' . $reqNonceB64 . '|ts=' . $respTs;
+        return self::buildResponseAeadAad($version, $reqNonceB64, $respTs);
     }
 
     /**

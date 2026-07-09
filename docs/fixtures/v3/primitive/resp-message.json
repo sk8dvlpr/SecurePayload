@@ -1,0 +1,13 @@
+{
+    "id": "resp-message",
+    "input": {
+        "version": "3",
+        "req_nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "resp_timestamp": "1700000060",
+        "resp_nonce_b64": "AgICAgICAgICAgICAgICAg==",
+        "body_digest_b64": "op7isVxJQxHFJSF2bkSvVqOtIkjnqKtGXlIGRjwT0og="
+    },
+    "expected": {
+        "message": "resp-v3\nreq-nonce=AQEBAQEBAQEBAQEBAQEBAQ==\nresp-ts=1700000060\nresp-nonce=AgICAgICAgICAgICAgICAg==\nbd=sha256:op7isVxJQxHFJSF2bkSvVqOtIkjnqKtGXlIGRjwT0og=\n"
+    }
+}
