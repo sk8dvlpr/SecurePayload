@@ -1,6 +1,6 @@
 # SecurePayload — Agent Guide
 
-Library: `sk8dvlpr/securepayload` v2.9.0 | Protocol version: `3`
+Library: `sk8dvlpr/securepayload` v2.10.0 | Protocol version: `3`
 
 ## Before Any Code Change
 
@@ -22,7 +22,7 @@ Library: `sk8dvlpr/securepayload` v2.9.0 | Protocol version: `3`
 
 ## Roadmap
 
-Phases 1–16 done. Phase 17 (ecosystem) next. Full plan: `docs/ROADMAP.md`
+Phases 1–17 done. Full plan: `docs/ROADMAP.md`
 
 ## SecurePayload Skills
 
@@ -45,7 +45,7 @@ Phases 1–16 done. Phase 17 (ecosystem) next. Full plan: `docs/ROADMAP.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SecurePayload** (2127 symbols, 5794 relationships, 176 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **SecurePayload** (2240 symbols, 6073 relationships, 185 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

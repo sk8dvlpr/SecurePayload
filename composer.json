@@ -1,6 +1,6 @@
 {
   "name": "sk8dvlpr/securepayload",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "Unified client+server security helper for HMAC and AEAD (XChaCha20-Poly1305) with nonce/replay protection and canonical signing. Native PHP 8+, framework-agnostic.",
   "type": "library",
   "license": "MIT",
@@ -22,7 +22,8 @@
     "psr/simple-cache": "Required only if you use Psr16ReplayStore to back replay protection with a PSR-16 cache",
     "aws/aws-sdk-php": "Required only if you use AwsKms to wrap/unwrap keys via AWS KMS",
     "google/cloud-kms": "Required only if you use GcpKms to wrap/unwrap keys via GCP Cloud KMS",
-    "azure/keyvault-keys": "Required only if you use AzureKeyVaultKms to wrap/unwrap keys via Azure Key Vault"
+    "azure/keyvault-keys": "Required only if you use AzureKeyVaultKms to wrap/unwrap keys via Azure Key Vault",
+    "open-telemetry/sdk": "Required only if you use OpenTelemetrySecurityExporter with a real tracer"
   },
   "autoload": {
     "psr-4": {

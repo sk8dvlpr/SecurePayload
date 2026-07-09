@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `sk8dvlpr/securepayload` is a framework-agnostic PHP 8.0+ library for securing S2S / client-server HTTP requests with HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, and anti-replay protection. Distributed via Packagist; no application/runtime — it's a library consumed by other apps.
 
-**Current release:** 2.9.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
+**Current release:** 2.10.0 | **Protocol version:** `3` (`SecurePayload::DEFAULT_VERSION`)
 
 Note: source comments, docblocks, and exception messages are written in **Indonesian**. Match that language when editing existing code so the style stays consistent.
 
@@ -33,7 +33,7 @@ Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.
 
 ## Roadmap
 
-Phases 1–16 complete (see CHANGELOG v2.0.0–v2.9.0). **Phase 16 complete**: internal modularization (facade + Protocol/Client/Server/Response/File). **Phase 17 next**: ecosystem. Full roadmap: `docs/ROADMAP.md`.
+Phases 1–17 complete (see CHANGELOG v2.0.0–v2.10.0). **Phase 17 complete**: OpenTelemetry exporter, webhook verifier, Node Express/Fastify middleware, mTLS deployment guide. Full roadmap: `docs/ROADMAP.md`.
 
 ## Agent Skills
 
@@ -97,6 +97,7 @@ Security headers are `X-Client-Id`, `X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Sig
 | 8 | 2.7 | Observability: `onSecurityEvent`, `EVENT_*` constants |
 | 15 | 2.8 | Enterprise ops: `GcpKms`, `AzureKeyVaultKms`, `PrometheusSecurityExporter` |
 | 16 | 2.9 | Internal modularization (facade + Protocol/Client/Server/Response/File); no wire change |
+| 17 | 2.10 | Webhook verifier, OpenTelemetry exporter, Node middleware, mTLS docs |
 | 9 | bundle | Ed25519 response signing (mirror `signAlg`; server keypair) |
 | 10 | bundle | Key rotation + grace period (`rotateKey`, `useKeyLifecycle`) |
 
@@ -183,7 +184,7 @@ Both support `max_size`, `allowed_exts`, `block_dangerous`, `strict_mime` magic-
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SecurePayload** (2127 symbols, 5794 relationships, 176 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **SecurePayload** (2240 symbols, 6073 relationships, 185 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

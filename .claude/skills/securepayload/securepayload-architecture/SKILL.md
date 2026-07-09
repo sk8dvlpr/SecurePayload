@@ -47,8 +47,10 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `src/KMS/SecureKeyProvider.php` | Provider interface |
 | `src/ReplayStore/Psr16ReplayStore.php` | PSR-16 → `replayStore` callable |
 | `src/Observability/PrometheusSecurityExporter.php` | Prometheus counter dari `onSecurityEvent` |
+| `src/Observability/OpenTelemetrySecurityExporter.php` | Span OpenTelemetry dari `onSecurityEvent` (opsional) |
+| `src/Webhook/WebhookVerifier.php` | Helper verifikasi webhook (`verifyFromGlobals`) |
 | `examples/` | Framework integration patterns (legacy reference) |
-| `packages/` | Official framework packages + `securepayload-cli` |
+| `packages/node-sdk/` | Node/TS SDK + Express/Fastify middleware (Phase 17) |
 | `tests/Unit/` | Unit tests |
 | `tests/Integration/` | Round-trip tests |
 | `tests/Security/` | Security regression (spoofing, replay, downgrade, AAD) |

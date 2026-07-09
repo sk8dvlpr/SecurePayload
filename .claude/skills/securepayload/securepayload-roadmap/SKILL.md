@@ -7,19 +7,16 @@ description: SecurePayload development roadmap, phase status, priorities, and sc
 
 **Source of truth:** `docs/ROADMAP.md` — update that file when phases complete.
 
-**Current release:** 2.9.0 | **Protocol version:** 3
+**Current release:** 2.10.0 | **Protocol version:** 3
 
 ## Completed (Do Not Re-Implement)
 
-Phases 1–16 are shipped. See CHANGELOG.md v2.0.0–v2.9.0.
+Phases 1–17 are shipped. See CHANGELOG.md v2.0.0–v2.10.0.
 
 ## Next Phases (Priority Order)
 
-### Phase 16 — Refactor Core ✅
-Internal modularization: `Protocol/`, `Client/`, `Server/`, `Response/`, `File/`, `Internal/SecurePayloadConfig`. Facade `SecurePayload.php` unchanged public API; wire v3 unchanged. v2.9.0.
-
-### Phase 17 — Ecosystem & Observability (Planned)
-OpenTelemetry, Express middleware, webhook wrapper, etc. **Requires Phase 16** ✅.
+### Phase 17 — Ecosystem & Observability ✅
+OpenTelemetry spans (`OpenTelemetrySecurityExporter`), Express/Fastify middleware (Node SDK), `WebhookVerifier`, `docs/MTLS_DEPLOYMENT.md`. v2.10.0.
 
 ## Recommended Sequence
 

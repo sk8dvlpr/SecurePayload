@@ -2,7 +2,7 @@
 
 Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent merujuk ke file ini: `.claude/skills/securepayload/securepayload-roadmap/SKILL.md`.
 
-**Versi library saat ini:** 2.8.0  
+**Versi library saat ini:** 2.10.0  
 **Versi protokol default:** `3` (`SecurePayload::DEFAULT_VERSION`)
 
 ---
@@ -28,7 +28,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 14 | SDK lintas bahasa (Node.js, Go) | — | ✅ Done |
 | 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | 2.8.0 | ✅ Done |
 | 16 | Refactor core (`SecurePayload.php` → modul terpisah) | 2.9.0 | ✅ Done |
-| 17 | Ekosistem & observability lanjutan | — | 📋 Planned |
+| 17 | Ekosistem & observability lanjutan | 2.10.0 | ✅ Done |
 
 ---
 
@@ -159,25 +159,18 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 
 ---
 
-## Phase 17 — Ekosistem & Observability Lanjutan 📋 Planned
+## Phase 17 — Ekosistem & Observability Lanjutan ✅ Done
 
-**Tujuan:** Fitur adopsi dan operasional di atas fondasi modular (Phase 16) — satu concern utama per sub-entrega/PR.
+**Tujuan:** Fitur adopsi dan operasional di atas fondasi modular (Phase 16).
 
-**Lingkup (prioritas disarankan):**
+**Diimplementasikan:**
+- `OpenTelemetrySecurityExporter` — span dari `onSecurityEvent` (tracer opsional, duck typing)
+- `WebhookVerifier` — `verifyFromGlobals()` / `verifyFromRequest()` untuk pola webhook
+- Node SDK: `verifySecurePayload` (Express), `fastifySecurePayloadPlugin` (Fastify + `fastify-plugin`)
+- `docs/MTLS_DEPLOYMENT.md` — panduan mTLS + header forwarding + replay store
+- Contoh: `examples/webhook/verify.php`, `examples/observability/opentelemetry.php`
 
-| Prioritas | Item | Keterangan |
-|-----------|------|------------|
-| Tinggi | OpenTelemetry spans | Lanjutan Phase 8/15; integrasi opsional dengan `onSecurityEvent` / modul `Observability/` |
-| Tinggi | Express/Fastify middleware (Node SDK) | Middleware server/client resmi di `packages/node-sdk` |
-| Sedang | Webhook verifier wrapper | Helper verifikasi request masuk untuk pola webhook umum |
-| Sedang | Dokumentasi mTLS + SecurePayload | Panduan deployment TLS mutual; bukan ubah wire format |
-| Rendah | RFC 9421 HTTP Message Signatures bridge | Eksplorasi interoperabilitas standar eksternal |
-| Rendah | Post-quantum hybrid signing | Penelitian; belum prioritas S2S praktis |
-| Rendah | Multipart stream (manifest + file satu request) | **Memerlukan perencanaan wire v4** — tidak masuk scope awal Phase 17 |
-
-**Prasyarat:** **Wajib** Phase 16 (refactor core) — hindari menambah fitur besar di atas monolith.
-
-**Di luar scope Phase 17 awal:** middleware Gin/Echo/Fiber (Go), Java/Kotlin SDK, perubahan `docs/PROTOCOL.md` v3.
+**Backlog (belum dijadwalkan):** RFC 9421 bridge, post-quantum, multipart wire v4, middleware Gin/Echo/Fiber.
 
 ---
 

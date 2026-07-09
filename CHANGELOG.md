@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0] - 2026-07-10
+### Added
+- **Ekosistem & Observability (Phase 17)**:
+  - `SecurePayload\Webhook\WebhookVerifier` — helper verifikasi webhook (`verifyFromGlobals`, `verifyFromRequest`)
+  - `SecurePayload\Observability\OpenTelemetrySecurityExporter` — span OpenTelemetry dari `onSecurityEvent` (opsional, duck typing tracer)
+  - Node SDK: middleware Express (`verifySecurePayload`) dan plugin Fastify (`fastifySecurePayloadPlugin`)
+  - `docs/MTLS_DEPLOYMENT.md` — panduan mTLS + SecurePayload (transport vs aplikasi)
+  - Contoh: `examples/webhook/verify.php`, `examples/observability/opentelemetry.php`
+
+### Notes
+- Murni aditif: **tidak mengubah format wire** protokol v3. `open-telemetry/sdk`, `express`, `fastify` opsional.
+
 ## [2.9.0] - 2026-07-10
 ### Changed
 - **Refactor Core (Phase 16)** — modularisasi internal `SecurePayload.php` tanpa mengubah wire protocol v3:

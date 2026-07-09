@@ -207,6 +207,29 @@ If using `bindHeaders => ['X-Request-Id']`:
 ```
 Same header names and values must reach server unchanged.
 
+## Webhook receiver (Phase 17)
+
+```php
+use SecurePayload\Webhook\WebhookVerifier;
+
+$verifier = new WebhookVerifier($server);
+$result = $verifier->verifyFromGlobals($_SERVER, file_get_contents('php://input'));
+// Contoh: examples/webhook/verify.php
+```
+
+## Node.js Express / Fastify (Phase 17)
+
+```ts
+import { verifySecurePayload } from '@sk8dvlpr/securepayload-node/express';
+// atau fastifySecurePayloadPlugin dari '/fastify'
+```
+
+Lihat `packages/node-sdk/README.md`. Wajib raw body sebelum verify.
+
+## mTLS + SecurePayload
+
+Transport mTLS dan signing aplikasi bersifat orthogonal. Lihat `docs/MTLS_DEPLOYMENT.md` untuk header forwarding, path di belakang proxy, dan replay store multi-instance.
+
 ## Observability
 
 ```php
@@ -260,6 +283,18 @@ $server = new SecurePayload([
 ]);
 // Endpoint /metrics: echo $exporter->render();
 // Contoh lengkap: examples/observability/prometheus.php
+```
+
+## OpenTelemetry (Phase 17)
+
+```php
+use SecurePayload\Observability\OpenTelemetrySecurityExporter;
+
+$otel = new OpenTelemetrySecurityExporter(['tracer' => $tracer]); // open-telemetry/sdk opsional
+$server = new SecurePayload([
+    'onSecurityEvent' => $otel->onSecurityEvent(),
+]);
+// Contoh: examples/observability/opentelemetry.php
 ```
 
 ## Future: Official Framework Packages
