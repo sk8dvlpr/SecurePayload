@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.1] - 2026-07-09
+### Added
+- **Cross-Language SDKs (Phase 14)** — SDK Node.js/TypeScript dan Go untuk protokol v3 (byte-exact):
+  - `packages/node-sdk` — API `buildHeadersAndBody`, `verify`, `buildResponse`, `verifyResponse`; conformance v3 + interop PHP; CI job `node-sdk`
+  - `packages/go-sdk` — mirror Node/PHP; primitive + wire + negative conformance; smoke interop Go↔PHP; CI job `go-sdk`
+
+### Notes
+- Tidak mengubah wire format PHP core (`sk8dvlpr/securepayload` tetap v2.7.x). SDK terpisah di monorepo.
+
 ## [2.7.0] - 2026-06-23
 ### Added
 - **Observability & Audit Hooks (Phase 8)** — opsi konstruktor `onSecurityEvent: fn(string $event, array $context): void` untuk meneruskan event keamanan ke SIEM / rate-limiter.

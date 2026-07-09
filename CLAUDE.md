@@ -33,7 +33,7 @@ Dev-only files (`tests/`, `examples/`, `.github/`, `phpunit.xml.dist`, `phpstan.
 
 ## Roadmap
 
-Phases 1–13 complete (see CHANGELOG v2.0.0–v2.7.0; Phases 9–13 in bundle release). Next planned: **Phase 14** (cross-language SDKs). Full roadmap: `docs/ROADMAP.md`.
+Phases 1–14 complete (see CHANGELOG v2.0.0–v2.7.1; Phases 9–14 in bundle release). **Phase 14 complete**: Node.js SDK in `packages/node-sdk`, Go SDK in `packages/go-sdk`. Next: Phase 15 (Enterprise Ops). Full roadmap: `docs/ROADMAP.md`.
 
 ## Agent Skills
 
@@ -153,7 +153,7 @@ Both support `max_size`, `allowed_exts`, `block_dangerous`, `strict_mime` magic-
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SecurePayload** (1183 symbols, 3271 relationships, 76 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **SecurePayload** (1997 symbols, 5358 relationships, 165 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

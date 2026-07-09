@@ -2,7 +2,7 @@
 
 Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent merujuk ke file ini: `.claude/skills/securepayload/securepayload-roadmap/SKILL.md`.
 
-**Versi library saat ini:** 2.7.0  
+**Versi library saat ini:** 2.8.0  
 **Versi protokol default:** `3` (`SecurePayload::DEFAULT_VERSION`)
 
 ---
@@ -25,7 +25,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 11 | Spesifikasi protokol formal + test vectors | — | ✅ Done |
 | 12 | Framework packages resmi (Laravel, Symfony, CI4, Slim) | — | ✅ Done |
 | 13 | PSR-18 HTTP transport + CLI tooling | — | ✅ Done |
-| 14 | SDK lintas bahasa (Node.js, Go) | — | 📋 Planned |
+| 14 | SDK lintas bahasa (Node.js, Go) | — | ✅ Done |
 | 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | — | 📋 Planned |
 
 ---
@@ -99,7 +99,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 
 ---
 
-## Phase 14 — SDK Lintas Bahasa
+## Phase 14 — SDK Lintas Bahasa ✅ Done
 
 **Tujuan:** Partner non-PHP bisa implement protokol.
 
@@ -109,6 +109,11 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 - Conformance suite dari Phase 11
 
 **Prasyarat:** **Wajib** Phase 11 (spesifikasi + test vectors).
+
+**Status terkini:**
+- Package `packages/node-sdk` (TypeScript): API `buildHeadersAndBody`, `verify`, `buildResponse`, `verifyResponse`; conformance v3 + interop PHP; CI job `node-sdk`
+- Package `packages/go-sdk` (Go): API mirror Node/PHP; primitive + wire + negative conformance; smoke interop Go↔PHP; CI job `go-sdk`
+- Phase 14 selesai — Node.js + Go SDK tersedia untuk partner non-PHP
 
 ---
 

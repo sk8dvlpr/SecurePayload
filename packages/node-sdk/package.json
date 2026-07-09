@@ -1,0 +1,31 @@
+{
+  "name": "@sk8dvlpr/securepayload-node",
+  "version": "0.1.0",
+  "description": "Node.js/TypeScript SDK for SecurePayload protocol v3",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "@stablelib/xchacha20poly1305": "^2.0.1",
+    "tweetnacl": "^1.0.3"
+  }
+}

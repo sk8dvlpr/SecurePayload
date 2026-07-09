@@ -145,6 +145,17 @@ $res = $client->send($url, 'POST', $payload);
 
 Tanpa cURL maupun `httpTransport`, `send()` melempar exception yang jelas.
 
+### SDK lintas bahasa (Node.js & Go)
+
+Partner non-PHP dapat memakai implementasi protokol v3 yang **byte-exact** dengan PHP core:
+
+| SDK | Path | Uji |
+|-----|------|-----|
+| Node.js/TypeScript | [`packages/node-sdk`](packages/node-sdk) | `npm test` |
+| Go | [`packages/go-sdk`](packages/go-sdk) | `go test ./...` |
+
+Spesifikasi normatif: [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Test vectors: [`docs/fixtures/v3/`](docs/fixtures/v3/).
+
 ### CLI operasional (`securepayload-cli`)
 
 ```bash
