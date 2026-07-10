@@ -35,16 +35,21 @@ SecurePayload mengatasi ketiganya dengan menyisipkan sekumpulan header keamanan 
   - `hmac` — hanya tanda tangan (integritas + otentikasi, tanpa enkripsi).
   - `aead` — hanya enkripsi (kerahasiaan + integritas via AEAD tag).
   - `both` — enkripsi **dan** tanda tangan (keamanan maksimal; tanda tangan dibuat atas *plaintext*, bukan ciphertext).
-- **Dua algoritma tanda tangan** (`signAlg`):
+- **Algoritma tanda tangan** (`signAlg`):
   - `hmac` — HMAC-SHA256 (default, secret simetris).
   - `ed25519` — tanda tangan asimetris (client pegang private key, server pegang public key) untuk *non-repudiation*.
+  - `hybrid-mldsa44-ed25519` — hybrid Ed25519 + ML-DSA-44 (butuh `pqSigner` yang di-inject; lihat [docs/POST_QUANTUM.md](docs/POST_QUANTUM.md)).
+- **Protokol wire** — default `version` = `'4'` (`SecurePayload::DEFAULT_VERSION`). Client & server harus memakai nilai yang sama; set `version => '3'` bila perlu tetap di protokol v3.
 - **Proteksi anti-replay** dengan timestamp + nonce. Nonce diingat selama `replayTtl + clockSkew` agar tidak ada celah waktu yang bisa dieksploitasi.
 - **Canonicalization simetris** — client & server menghasilkan representasi request yang identik, sehingga verifikasi tahan terhadap manipulasi urutan query atau format path.
 - **Anti signature-spoofing** — server **menurunkan** method/path/query dari input request-nya sendiri, bukan dari header `X-Canonical-Request` (header itu hanya petunjuk debug).
-- **Transfer file aman** — kirim file terenkripsi/tertandatangani dengan validasi ukuran, *whitelist/blacklist* ekstensi, dan *deep MIME sniffing* anti-spoofing.
-- **Key Management System (KMS)** — provider kunci dari ENV atau Database (PDO), plus *key-wrapping* (enkripsi data-key dengan KEK).
+- **Transfer file aman** — in-memory (`buildFilePayload`), streaming dua langkah (`buildFileStream` + unggah ciphertext), atau **satu request multipart** (`buildFileStreamMultipartRequest` / `verifyFileStreamMultipart`).
+- **Webhook helper** — `WebhookVerifier` membaca method/path/query dari `$_SERVER` (termasuk fallback header nginx/FPM).
+- **Observability** — hook `onSecurityEvent`, `PrometheusSecurityExporter`, dan `OpenTelemetrySecurityExporter` (tracer opsional).
+- **Interop RFC 9421** — `Rfc9421Bridge` memetakan header SecurePayload ↔ `Signature-Input` / `Signature` / `Content-Digest` (HMAC-SHA256).
+- **Key Management System (KMS)** — provider kunci dari ENV atau Database (PDO), plus *key-wrapping* (Local / Vault / AWS / GCP / Azure).
 - **Soft dependency `ext-sodium`** — jalur HMAC-only tetap berfungsi tanpa ekstensi sodium.
-- **Framework-agnostic** — contoh integrasi untuk Laravel, Lumen, CodeIgniter 4, Symfony, Slim, dan Native PHP tersedia di `examples/`.
+- **SDK & middleware** — PHP core; Node (`packages/node-sdk`, Express/Fastify); Go (`packages/go-sdk`, Gin/Echo/Fiber). Package framework resmi di `packages/`.
 
 ---
 
@@ -81,9 +86,11 @@ composer require sk8dvlpr/securepayload
 | :----- | :-------- | :------------------------------------ | :------------------------------------ |
 | `hmac` | `hmac`    | `hmacSecretRaw` (**≥ 32 karakter**)   | `hmacSecret` (sama)                    |
 | `hmac` | `ed25519` | `ed25519SecretKeyB64` (64 byte)       | `ed25519PublicKeyB64` (32 byte)       |
+| `hmac` | `hybrid-mldsa44-ed25519` | Ed25519 secret + ML-DSA secret + `pqSigner` | Ed25519 public + ML-DSA public + `pqSigner` |
 | `aead` | —         | `aeadKeyB64` (**tepat 32 byte**)      | `aeadKeyB64` (sama)                    |
 | `both` | `hmac`    | `hmacSecretRaw` + `aeadKeyB64`        | `hmacSecret` + `aeadKeyB64`           |
 | `both` | `ed25519` | `ed25519SecretKeyB64` + `aeadKeyB64`  | `ed25519PublicKeyB64` + `aeadKeyB64`  |
+| `both` | `hybrid-mldsa44-ed25519` | Ed25519 + ML-DSA + AEAD + `pqSigner` | public Ed25519/ML-DSA + AEAD + `pqSigner` |
 
 Cara cepat membangkitkan kunci yang valid:
 
@@ -97,7 +104,7 @@ $ed25519SecretKeyB64 = base64_encode(sodium_crypto_sign_secretkey($pair)); // cl
 $ed25519PublicKeyB64 = base64_encode(sodium_crypto_sign_publickey($pair)); // server
 ```
 
-> ℹ️ Mulai **v2.0** `version` protokol default adalah `'2'`. Pastikan client & server memakai versi yang sama.
+> ℹ️ Default protokol adalah **`'4'`**. Client & server harus memakai `version` yang sama. Untuk tetap di v3: `'version' => '3'`. Spesifikasi: [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 ---
 
@@ -207,6 +214,36 @@ $res = $server->verifyFileStream('/tmp/uploaded.sps', $manifest, '/tmp/plain.zip
 
 > 💾 **Memori & chunk:** pemakaian RAM ≈ satu chunk (default 64 KiB; rentang 1 KiB–8 MiB). Chunk **256 KiB–1 MiB** efisien untuk file besar. Kunci stream memakai `aeadKeyB64` instance (mendukung `deriveKeys`). Proteksi truncation/append (TAG_FINAL) + digest ciphertext aktif. Lihat `examples/file-stream/`.
 
+### File stream dalam satu request (multipart)
+
+`buildFileStreamMultipartRequest()` mengenkripsi file per-chunk, menandatangani/mengamankan **manifest** lewat jalur `buildHeadersAndBody`, lalu membungkus hasilnya sebagai `multipart/form-data` (part `payload` = body SecurePayload untuk manifest; part `ciphertext` = bytes secretstream). Header `X-SP-Multipart: 1` menandai request ini.
+
+```php
+[$headers, $multipartBody, $contentType] = $client->buildFileStreamMultipartRequest(
+    'https://api.tujuan.com/v1/upload',
+    'POST',
+    '/path/besar.zip',
+    ['name' => 'besar.zip'],
+    256 * 1024
+);
+// Kirim $headers + $multipartBody dengan Content-Type dari $contentType (atau $headers['Content-Type']).
+
+$res = $server->verifyFileStreamMultipart(
+    $headers,
+    $multipartBody,
+    'POST',
+    '/v1/upload',
+    [],
+    '/tmp/plain.zip',
+    ['max_size' => 100 * 1024 * 1024, 'allowed_exts' => ['zip'], 'strict_mime' => true]
+);
+if ($res['ok']) {
+    // $res['file']['path'] → plaintext; $res['verify'] → hasil verify() pada part payload
+}
+```
+
+Alur dua langkah (`buildFileStream` + unggah `.sps` terpisah) tetap tersedia untuk protokol v3 maupun sebagai low-level di v4.
+
 ---
 
 ## 🛡️ Penggunaan — Sisi Server (Penerima)
@@ -245,6 +282,20 @@ $data = $result['json'];          // array hasil decode JSON
 $raw  = $result['bodyPlain'];     // string plaintext mentah
 $mode = $result['mode'];          // 'HMAC' | 'AEAD' | 'BOTH' | 'BOTH-AEAD'
 ```
+
+### Webhook / native PHP (`WebhookVerifier`)
+
+Untuk endpoint webhook, `WebhookVerifier` mengekstrak method, path, dan query dari `$_SERVER` (plus fallback header bila `getallheaders()` tidak tersedia di nginx/FPM), lalu mendelegasikan ke `verify()`:
+
+```php
+use SecurePayload\Webhook\WebhookVerifier;
+
+$verifier = new WebhookVerifier($server);
+$result = $verifier->verifyFromGlobals($_SERVER, (string) file_get_contents('php://input'));
+// atau: $verifier->verifyFromRequest($headers, $rawBody, $method, $path, $query);
+```
+
+Contoh: [`examples/webhook/verify.php`](examples/webhook/verify.php).
 
 ### Pilihan API verifikasi
 
@@ -326,6 +377,24 @@ $pair = (new KeyManager())->generateEd25519KeyPair();
 // $pair['publicB64']  -> simpan di server / DB (kolom ed25519_public_b64)
 // $pair['secretB64']  -> berikan ke client, JANGAN simpan di server
 ```
+
+### Hybrid Ed25519 + ML-DSA-44
+
+Untuk tanda tangan hybrid (Ed25519 ‖ ML-DSA-44), set `signAlg => 'hybrid-mldsa44-ed25519'` dan inject implementasi `SecurePayload\Crypto\PqSignerInterface` lewat opsi `pqSigner`. Wire header memakai `HYBRID-MLDSA44-ED25519`; nilai signature adalah `base64(ed25519_sig ‖ mldsa_sig)`.
+
+```php
+$client = new SecurePayload([
+    'mode'                => 'hmac',
+    'signAlg'             => 'hybrid-mldsa44-ed25519',
+    'pqSigner'            => $pqSigner,              // wajib
+    'clientId'            => 'client_001',
+    'keyId'               => 'key_v1',
+    'ed25519SecretKeyB64' => $ed25519SecretKeyB64,
+    'mldsaSecretKeyB64'   => $mldsaSecretKeyB64,
+]);
+```
+
+Library **tidak** membundle implementasi ML-DSA produksi; adapter liboqs/FIPS 204 disuplai aplikasi. Detail wire & field kunci: [`docs/POST_QUANTUM.md`](docs/POST_QUANTUM.md).
 
 ---
 
@@ -413,7 +482,7 @@ Helper publik tersedia bila Anda butuh derivasi sendiri:
 $subkey = SecurePayload::deriveKey($masterKey, 'sp-aead-req'); // 32 byte biner
 ```
 
-> ⚠️ **Wajib sinkron:** `deriveKeys` harus sama di client & server. Bila tidak cocok, verifikasi **gagal-tertutup** (signature/dekripsi invalid) — tidak ada downgrade diam-diam. Opsi ini *opt-in* dan tidak mengubah perilaku default. Tidak berlaku untuk signing **Ed25519** (sudah asimetris).
+> ⚠️ **Wajib sinkron:** `deriveKeys` harus sama di client & server. Bila tidak cocok, verifikasi **gagal-tertutup** (signature/dekripsi invalid) — tidak ada downgrade diam-diam. Opsi ini *opt-in* dan tidak mengubah perilaku default. Tidak berlaku untuk signing **Ed25519** / **hybrid** (material asimetris / PQ).
 
 ---
 
@@ -467,6 +536,43 @@ echo $exporter->render();
 
 Label `client_id` / `key_id` **opt-in** (`includeClientId`, `includeKeyId`) — default hanya `event` untuk menghindari cardinality tinggi. Contoh server: [`examples/observability/prometheus.php`](examples/observability/prometheus.php).
 
+### OpenTelemetry
+
+`OpenTelemetrySecurityExporter` menulis span dari event yang sama. Tanpa tracer, callback menjadi no-op. Pasang tracer dari `open-telemetry/sdk` (opsional) bila tersedia:
+
+```php
+use SecurePayload\Observability\OpenTelemetrySecurityExporter;
+
+$otel = new OpenTelemetrySecurityExporter([
+    'tracer' => $tracer, // objek dengan spanBuilder()/startSpan(); boleh null
+]);
+$server = new SecurePayload([
+    'mode' => 'both',
+    'keyLoader' => $loader,
+    'onSecurityEvent' => $otel->onSecurityEvent(),
+]);
+```
+
+Contoh gabungan Prometheus + OTel: [`examples/observability/opentelemetry.php`](examples/observability/opentelemetry.php).
+
+---
+
+## 🔗 Interop RFC 9421 (`Rfc9421Bridge`)
+
+`SecurePayload\Interop\Rfc9421Bridge` memetakan header SecurePayload ke `Signature-Input` / `Signature` / `Content-Digest` (algoritma bridge: **hmac-sha256**), dan sebaliknya memvalidasi digest lalu mendelegasikan ke `SecurePayload::verify()`. Bridge **bukan** pengganti wire SecurePayload.
+
+```php
+use SecurePayload\Interop\Rfc9421Bridge;
+
+[$spHeaders, $body] = $client->buildHeadersAndBody($url, 'POST', $payload);
+$rfcHeaders = Rfc9421Bridge::exportFromSecureHeaders($spHeaders, 'POST', '/v1/resource', 'limit=10', $body);
+// $rfcHeaders berisi Signature-Input, Signature, Content-Digest (+ header SP yang relevan)
+
+$result = Rfc9421Bridge::verifyMapped($server, $rfcHeaders, $body, 'POST', '/v1/resource', 'limit=10');
+```
+
+Dokumentasi: [`docs/RFC9421_BRIDGE.md`](docs/RFC9421_BRIDGE.md). Contoh: [`examples/interop/rfc9421.php`](examples/interop/rfc9421.php).
+
 ---
 
 ## ⚙️ Opsi Konstruktor
@@ -474,20 +580,26 @@ Label `client_id` / `key_id` **opt-in** (`includeClientId`, `includeKeyId`) — 
 | Opsi            | Tipe       | Default  | Keterangan                                                              |
 | :-------------- | :--------- | :------- | :---------------------------------------------------------------------- |
 | `mode`          | string     | `both`   | `hmac` \| `aead` \| `both`.                                            |
-| `signAlg`       | string     | `hmac`   | `hmac` \| `ed25519` (algoritma tanda tangan untuk mode hmac/both).     |
-| `version`       | string     | `3`      | Versi protokol; client & server harus sama.                            |
+| `signAlg`       | string     | `hmac`   | `hmac` \| `ed25519` \| `hybrid-mldsa44-ed25519`.                       |
+| `version`       | string     | `4`      | Versi protokol; client & server harus sama. Gunakan `'3'` untuk v3.   |
 | `clientId`      | string     | —        | Wajib di sisi client.                                                  |
 | `keyId`         | string     | —        | Wajib di sisi client.                                                  |
 | `hmacSecretRaw` | string     | —        | Secret HMAC mentah, **≥ 32 karakter** (signAlg=hmac).                  |
-| `ed25519SecretKeyB64` | string | —     | Secret key Ed25519 base64 64-byte (client, signAlg=ed25519).          |
+| `ed25519SecretKeyB64` | string | —     | Secret key Ed25519 base64 64-byte (client, signAlg=ed25519/hybrid).   |
+| `ed25519PublicKeyServerB64` | string | — | Public key Ed25519 server (client, verifikasi response).            |
+| `ed25519SecretKeyServerB64` | string | — | Secret key Ed25519 server (server, signing response).               |
+| `mldsaSecretKeyB64` / `mldsaPublicKeyB64` | string | — | Kunci ML-DSA client (signAlg hybrid).                    |
+| `mldsaSecretKeyServerB64` / `mldsaPublicKeyServerB64` | string | — | Kunci ML-DSA server (response hybrid).         |
+| `pqSigner`      | object     | —        | `PqSignerInterface`; **wajib** jika `signAlg` hybrid.                  |
 | `aeadKeyB64`    | string     | —        | Kunci AEAD base64, decode **tepat 32 byte**.                           |
-| `keyLoader`     | callable   | —        | `fn($cid, $kid): array{hmacSecret,?aeadKeyB64,?ed25519PublicKeyB64}` (server). |
+| `keyLoader`     | callable   | —        | `fn($cid, $kid): array{...}` (server; termasuk field Ed25519/ML-DSA). |
 | `replayStore`   | callable   | —        | `fn(string $key, int $ttl): bool` — store nonce terpusat (lihat di bawah). |
 | `replayTtl`     | int        | `120`    | Masa berlaku nonce (detik).                                            |
 | `clockSkew`     | int        | `60`     | Toleransi selisih jam (detik).                                         |
-| `bindHeaders`   | string[]   | `[]`     | Nama header kritikal (mis. `['Content-Type']`) yang nilainya diikat ke AAD AEAD; perubahan/penghapusannya menggagalkan dekripsi. Harus sama di client & server. |
-| `deriveKeys`    | bool       | `false`  | Jika `true`, kunci HMAC & AEAD diperlakukan sebagai master key dan subkey per-fungsi diturunkan via HKDF-SHA256 (pemisahan domain). Harus sama di client & server. |
-| `onSecurityEvent` | callable | —        | Hook observasional `fn(string $event, array $context): void` untuk SIEM/rate-limiter. Diemit saat event keamanan (replay/signature/dekripsi gagal, dst). Context tanpa material rahasia; exception callback ditelan. |
+| `bindHeaders`   | string[]   | `[]`     | Nama header kritikal yang diikat ke AAD AEAD; harus sama di client & server. |
+| `deriveKeys`    | bool       | `false`  | Master key → subkey HKDF per-fungsi; harus sama di client & server.   |
+| `onSecurityEvent` | callable | —        | Hook observasional untuk SIEM/rate-limiter (context tanpa secret).   |
+| `httpTransport` | object\|callable | — | `HttpTransportInterface` atau factory untuk `send()`/`sendFile()`. |
 
 ---
 
@@ -612,6 +724,16 @@ Implementasi lengkap (middleware client & server) tersedia di folder [`examples/
 | **Slim 4**       | [`examples/slim/`](examples/slim/)     | PSR-15 Middleware & PSR-18 Client     |
 | **Symfony**      | [`examples/symfony/`](examples/symfony/) | Event Subscriber & HttpClient Service |
 | **Native PHP**   | [`examples/native/`](examples/native/) | Implementasi tanpa framework          |
+| **Webhook**      | [`examples/webhook/`](examples/webhook/) | `WebhookVerifier` + raw body        |
+
+### SDK Node.js & Go
+
+| SDK | Path | Catatan |
+| :-- | :--- | :------ |
+| **Node / TypeScript** | [`packages/node-sdk`](packages/node-sdk/) | API mirror PHP; middleware Express & plugin Fastify (`@sk8dvlpr/securepayload-node/express`, `.../fastify`). Wajib raw body sebelum verify. |
+| **Go** | [`packages/go-sdk`](packages/go-sdk/) | API mirror PHP; middleware Gin / Echo / Fiber di package `middleware`. |
+
+Deployment mTLS (transport) bersama SecurePayload (aplikasi): [`docs/MTLS_DEPLOYMENT.md`](docs/MTLS_DEPLOYMENT.md).
 
 ---
 
@@ -634,13 +756,14 @@ composer stan                          # PHPStan level 5 pada src/
 | `X-Key-Id`              | ID kunci yang dipakai.                              |
 | `X-Timestamp`           | Waktu request (validasi kesegaran).                 |
 | `X-Nonce`               | Token unik sekali-pakai (anti-replay).              |
-| `X-Signature`           | Nilai HMAC-SHA256.                                  |
-| `X-Signature-Version`   | Versi protokol tanda tangan.                        |
-| `X-Signature-Algorithm` | Algoritma tanda tangan (`HMAC-SHA256` atau `ED25519`). |
+| `X-Signature`           | Nilai tanda tangan (HMAC / Ed25519 / hybrid).       |
+| `X-Signature-Version`   | Versi protokol (`4` default; atau `3`).             |
+| `X-Signature-Algorithm` | `HMAC-SHA256`, `ED25519`, atau `HYBRID-MLDSA44-ED25519`. |
 | `X-Body-Digest`         | Digest SHA-256 dari body (`sha256=...`).            |
 | `X-Canonical-Request`   | Petunjuk debug — **bukan** sumber kebenaran server. |
 | `X-AEAD-Algorithm`      | Algoritma enkripsi (`XCHACHA20-POLY1305-IETF`).     |
 | `X-AEAD-Nonce`          | Nonce AEAD yang terikat konteks request.            |
+| `X-SP-Multipart`        | `1` bila body adalah multipart file stream.         |
 | `X-Resp-*`              | Padanan header di atas untuk **response** (timestamp, nonce, signature, body-digest, AEAD), terikat ke nonce request asal. |
 
 ---

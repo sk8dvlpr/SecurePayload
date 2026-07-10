@@ -75,8 +75,14 @@ final class SecurePayload
     public const HMAC_ALG = 'HMAC-SHA256';
     /** Algoritma tanda tangan asimetris (Ed25519, libsodium) */
     public const ED25519_ALG = 'ED25519';
+    /** Algoritma hybrid post-quantum: Ed25519 || ML-DSA-44 (Phase 18d) */
+    public const HYBRID_ALG = 'HYBRID-MLDSA44-ED25519';
+    /** Nilai opsi signAlg untuk hybrid */
+    public const SIGN_ALG_HYBRID = 'hybrid-mldsa44-ed25519';
     public const AEAD_ALG = 'XCHACHA20-POLY1305-IETF';
-    public const DEFAULT_VERSION = '3';
+    /** Marker header multipart file stream (protokol v4) */
+    public const HX_MULTIPART = 'X-SP-Multipart';
+    public const DEFAULT_VERSION = '4';
 
     /**
      * Label `info` HKDF per-fungsi untuk derivasi subkey (opsi `deriveKeys`).
@@ -116,7 +122,7 @@ final class SecurePayload
      *
      * @param array{
      *   mode?: 'hmac'|'aead'|'both',
-     *   signAlg?: 'hmac'|'ed25519',
+     *   signAlg?: 'hmac'|'ed25519'|'hybrid-mldsa44-ed25519',
      *   version?: string,
      *   clientId?: string,
      *   keyId?: string,
@@ -124,6 +130,11 @@ final class SecurePayload
      *   ed25519SecretKeyB64?: string|null,
      *   ed25519PublicKeyServerB64?: string|null,
      *   ed25519SecretKeyServerB64?: string|null,
+     *   mldsaSecretKeyB64?: string|null,
+     *   mldsaPublicKeyB64?: string|null,
+     *   mldsaSecretKeyServerB64?: string|null,
+     *   mldsaPublicKeyServerB64?: string|null,
+     *   pqSigner?: \SecurePayload\Crypto\PqSignerInterface|null,
      *   aeadKeyB64?: string|null,
      *   keyLoader?: callable|null,
      *   replayStore?: callable|null,
@@ -343,6 +354,102 @@ final class SecurePayload
     public function verifyFileStream(string $encPath, array $manifest, string $destPath, array $constraints = []): array
     {
         return $this->fileStreamService->verifyFileStream($encPath, $manifest, $destPath, $constraints);
+    }
+
+    /**
+     * Bangun request multipart file stream (protokol v4).
+     *
+     * Signature/HMAC/AEAD mencakup body SP dari **manifest** (via buildHeadersAndBody).
+     * Body HTTP adalah multipart: part `payload` = body SP tersign/terenkripsi; part `ciphertext` = bytes stream.
+     *
+     * @param array{name?:string} $meta
+     * @param array<string,string> $extraHeaders
+     * @return array{0: array<string,string>, 1: string, 2: string} [headers, multipartBody, contentType]
+     */
+    public function buildFileStreamMultipartRequest(
+        string $url,
+        string $method,
+        string $srcPath,
+        array $meta = [],
+        int $chunkSize = 65536,
+        array $extraHeaders = []
+    ): array {
+        $encTmp = tempnam(sys_get_temp_dir(), 'sp_enc_');
+        if ($encTmp === false) {
+            throw new SecurePayloadException('Gagal membuat temp file ciphertext', SecurePayloadException::SERVER_ERROR);
+        }
+        try {
+            $manifest = $this->fileStreamService->buildFileStream($srcPath, $encTmp, $meta, $chunkSize);
+            $ciphertext = file_get_contents($encTmp);
+            if ($ciphertext === false) {
+                throw new SecurePayloadException('Gagal membaca ciphertext stream', SecurePayloadException::SERVER_ERROR);
+            }
+            [$headers, $securedBody] = $this->buildHeadersAndBody($url, $method, $manifest, $extraHeaders);
+            $mp = FileStreamService::buildMultipartBody($securedBody, $ciphertext);
+            $headers['Content-Type'] = $mp['content_type'];
+            $headers[self::HX_MULTIPART] = '1';
+            return [$headers, $mp['body'], $mp['content_type']];
+        } finally {
+            if (is_file($encTmp)) {
+                @unlink($encTmp);
+            }
+        }
+    }
+
+    /**
+     * Verifikasi request multipart file stream (v4): parse → verify payload → verifyFileStream.
+     *
+     * @param array<string,string> $headers
+     * @param array<string,mixed>|string $query
+     * @param array<string,mixed> $constraints
+     * @return array{ok:bool,status?:int,error?:string,verify?:array<string,mixed>,file?:array<string,mixed>}
+     */
+    public function verifyFileStreamMultipart(
+        array $headers,
+        string $multipartBody,
+        string $method,
+        string $path,
+        $query,
+        string $destPath,
+        array $constraints = []
+    ): array {
+        $norm = [];
+        foreach ($headers as $k => $v) {
+            $norm[strtoupper((string) $k)] = (string) $v;
+        }
+        $contentType = $norm['CONTENT-TYPE'] ?? '';
+        try {
+            $parts = FileStreamService::parseMultipartBody($multipartBody, $contentType);
+        } catch (SecurePayloadException $e) {
+            return ['ok' => false, 'status' => $e->getCode() ?: 400, 'error' => $e->getMessage()];
+        }
+
+        $verify = $this->verify($headers, $parts['payload'], $method, $path, $query);
+        if (!$verify['ok']) {
+            return ['ok' => false, 'status' => $verify['status'] ?? 401, 'error' => $verify['error'] ?? 'verify gagal', 'verify' => $verify];
+        }
+
+        $manifest = $verify['json'] ?? null;
+        if (!is_array($manifest)) {
+            return ['ok' => false, 'status' => 422, 'error' => 'Manifest JSON tidak valid setelah verify'];
+        }
+
+        $encTmp = tempnam(sys_get_temp_dir(), 'sp_enc_');
+        if ($encTmp === false) {
+            return ['ok' => false, 'status' => 500, 'error' => 'Gagal membuat temp ciphertext'];
+        }
+        try {
+            file_put_contents($encTmp, $parts['ciphertext']);
+            $fileRes = $this->verifyFileStream($encTmp, $manifest, $destPath, $constraints);
+            if (!$fileRes['ok']) {
+                return ['ok' => false, 'status' => $fileRes['status'] ?? 422, 'error' => $fileRes['error'] ?? 'stream gagal', 'verify' => $verify];
+            }
+            return ['ok' => true, 'status' => 200, 'verify' => $verify, 'file' => $fileRes['file'] ?? null];
+        } finally {
+            if (is_file($encTmp)) {
+                @unlink($encTmp);
+            }
+        }
     }
 
     /**

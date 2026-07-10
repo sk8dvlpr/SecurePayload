@@ -92,8 +92,9 @@ Never break public method signatures on `SecurePayload` without major version pl
 | Option | Default | Notes |
 |--------|---------|-------|
 | `mode` | `both` | `hmac` \| `aead` \| `both` |
-| `signAlg` | `hmac` | `hmac` \| `ed25519` |
-| `version` | `3` | Must match client & server |
+| `signAlg` | `hmac` | `hmac` \| `ed25519` \| `hybrid-mldsa44-ed25519` |
+| `version` | `4` | Must match client & server (`'3'` for legacy) |
+| `pqSigner` | `null` | Required when `signAlg` is hybrid |
 | `replayTtl` | `120` | seconds |
 | `clockSkew` | `60` | seconds |
 | `bindHeaders` | `[]` | AAD-bound header names |

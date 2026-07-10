@@ -2,8 +2,8 @@
 
 Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent merujuk ke file ini: `.claude/skills/securepayload/securepayload-roadmap/SKILL.md`.
 
-**Versi library saat ini:** 2.10.0  
-**Versi protokol default:** `3` (`SecurePayload::DEFAULT_VERSION`)
+**Versi library saat ini:** 3.1.0  
+**Versi protokol default:** `4` (`SecurePayload::DEFAULT_VERSION`)
 
 ---
 
@@ -29,6 +29,11 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 15 | Enterprise ops (GCP/Azure KMS, metrics/Prometheus) | 2.8.0 | ✅ Done |
 | 16 | Refactor core (`SecurePayload.php` → modul terpisah) | 2.9.0 | ✅ Done |
 | 17 | Ekosistem & observability lanjutan | 2.10.0 | ✅ Done |
+| 18 | Full backlog (Go MW, RFC 9421, wire v4, PQ) | 3.1.0 | ✅ Done |
+| 18a | Go middleware (Gin / Echo / Fiber) | — | ✅ Done |
+| 18b | RFC 9421 HTTP Message Signatures bridge | 2.11.0 | ✅ Done |
+| 18c | Wire protocol v4 + multipart stream | 3.0.0 | ✅ Done |
+| 18d | Post-quantum hybrid signing (ML-DSA44+Ed25519) | 3.1.0 | ✅ Done |
 
 ---
 
@@ -170,7 +175,28 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 - `docs/MTLS_DEPLOYMENT.md` — panduan mTLS + header forwarding + replay store
 - Contoh: `examples/webhook/verify.php`, `examples/observability/opentelemetry.php`
 
-**Backlog (belum dijadwalkan):** RFC 9421 bridge, post-quantum, multipart wire v4, middleware Gin/Echo/Fiber.
+**Backlog:** dipindah ke Phase 18 (selesai).
+
+---
+
+## Phase 18 — Full Backlog ✅ Done
+
+**Tujuan:** Menjadwalkan seluruh backlog tersisa sebagai empat sub-deliverable.
+
+| Sub | Item | Target versi | Status |
+|-----|------|--------------|--------|
+| 18a | Middleware Gin/Echo/Fiber di `packages/go-sdk` | (Go SDK) | ✅ Done |
+| 18b | `Rfc9421Bridge` (hmac-sha256) | 2.11.0 | ✅ Done |
+| 18c | Protokol v4 + multipart file stream; `DEFAULT_VERSION=4` | 3.0.0 | ✅ Done |
+| 18d | `signAlg` hybrid ML-DSA-44 + Ed25519 | 3.1.0 | ✅ Done |
+
+**Diimplementasikan:**
+- **18a:** `packages/go-sdk/middleware` — `GinVerify`, `EchoVerify`, `FiberVerify` + tests
+- **18b:** `src/Interop/Rfc9421Bridge.php`, `docs/RFC9421_BRIDGE.md`, `examples/interop/rfc9421.php`
+- **18c:** `buildFileStreamMultipartRequest` / `verifyFileStreamMultipart`; `DEFAULT_VERSION=4`; Node/Go sync; `docs/PROTOCOL.md` appendix v4
+- **18d:** `PqSignerInterface`, `signAlg=hybrid-mldsa44-ed25519`, `docs/POST_QUANTUM.md`
+
+**Catatan 18c:** Dual-support v3 via `version => '3'` eksplisit; satu instance tidak auto-accept kedua versi.
 
 ---
 
@@ -186,10 +212,10 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 ## Urutan Implementasi yang Disarankan
 
 ```
-Phase 9 → … → Phase 15 → Phase 16 → Phase 17
+Phase 9 → … → Phase 17 → Phase 18 (18a → 18b → 18c → 18d) ✅
 ```
 
-Phase 16 (refactor internal) **wajib** sebelum menambah fitur ekosistem di Phase 17.
+Phase 18 menyelesaikan backlog terjadwal.
 
 ---
 

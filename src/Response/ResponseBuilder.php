@@ -92,7 +92,21 @@ final class ResponseBuilder
             $digestB64 = Digest::bodyDigestB64($plain);
             $msg = Messages::respMessage($ver, $reqNonceB64, $respTs, $respNonceB64, $digestB64);
 
-            if ($this->config->getSignAlg() === 'ed25519') {
+            if ($this->config->getSignAlg() === SecurePayload::SIGN_ALG_HYBRID) {
+                $this->config->ensureSodium();
+                $sk = $this->config->getEd25519SecretKeyServerRaw($ed25519SecretServerB64);
+                $pq = $this->config->getPqSigner();
+                if ($pq === null) {
+                    throw new SecurePayloadException('pqSigner wajib untuk signAlg hybrid', SecurePayloadException::SERVER_ERROR);
+                }
+                $edSig = sodium_crypto_sign_detached($msg, $sk);
+                $pqSig = $pq->sign($msg);
+                if (strlen($pqSig) !== \SecurePayload\Crypto\PqSignerInterface::MLDSA44_SIG_BYTES) {
+                    throw new SecurePayloadException('Panjang signature ML-DSA tidak valid', SecurePayloadException::SERVER_ERROR);
+                }
+                $sigB64 = base64_encode($edSig . $pqSig);
+                $headers[SecurePayload::HX_RESP_SIG_ALG] = SecurePayload::HYBRID_ALG;
+            } elseif ($this->config->getSignAlg() === 'ed25519') {
                 $this->config->ensureSodium();
                 $sk = $this->config->getEd25519SecretKeyServerRaw($ed25519SecretServerB64);
                 $sigB64 = base64_encode(sodium_crypto_sign_detached($msg, $sk));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SecurePayload\Internal;
 
+use SecurePayload\Crypto\PqSignerInterface;
 use SecurePayload\Exceptions\SecurePayloadException;
 use SecurePayload\Http\HttpTransportInterface;
 use SecurePayload\Protocol\Digest;
@@ -18,7 +19,7 @@ final class SecurePayloadConfig
     /** @var 'hmac'|'aead'|'both' Mode keamanan yang digunakan */
     private string $mode;
 
-    /** @var 'hmac'|'ed25519' Algoritma tanda tangan untuk mode hmac/both */
+    /** @var 'hmac'|'ed25519'|'hybrid-mldsa44-ed25519' Algoritma tanda tangan untuk mode hmac/both */
     private string $signAlg;
 
     /** @var string Versi protokol */
@@ -38,7 +39,22 @@ final class SecurePayloadConfig
     /** @var string|null Secret key Ed25519 server (base64, 64 byte) untuk signing response di sisi server */
     private ?string $ed25519SecretKeyServerB64;
 
-    /** @var callable(string,string): array{hmacSecret:?string,aeadKeyB64:?string,ed25519PublicKeyB64:?string,ed25519SecretKeyServerB64:?string}|null Fungsi untuk memuat kunci */
+    /** @var string|null Public key ML-DSA client (base64) untuk verifikasi request hybrid */
+    private ?string $mldsaPublicKeyB64;
+
+    /** @var string|null Secret key ML-DSA client (base64) — disimpan untuk dokumentasi; signing via pqSigner */
+    private ?string $mldsaSecretKeyB64;
+
+    /** @var string|null Public key ML-DSA server (base64) untuk verifikasi response hybrid */
+    private ?string $mldsaPublicKeyServerB64;
+
+    /** @var string|null Secret key ML-DSA server (base64) */
+    private ?string $mldsaSecretKeyServerB64;
+
+    /** @var PqSignerInterface|null Signer PQ yang di-inject (wajib jika signAlg hybrid) */
+    private ?PqSignerInterface $pqSigner;
+
+    /** @var callable(string,string): array{hmacSecret:?string,aeadKeyB64:?string,ed25519PublicKeyB64:?string,ed25519SecretKeyServerB64:?string,mldsaPublicKeyB64?:?string,mldsaPublicKeyServerB64?:?string}|null Fungsi untuk memuat kunci */
     private $keyLoader;
 
     /** @var callable(string,int): bool|null Fungsi kustom untuk penyimpanan replay cache */
@@ -80,7 +96,7 @@ final class SecurePayloadConfig
      *
      * @param array{
      *   mode?: 'hmac'|'aead'|'both',
-     *   signAlg?: 'hmac'|'ed25519',
+     *   signAlg?: 'hmac'|'ed25519'|'hybrid-mldsa44-ed25519',
      *   version?: string,
      *   clientId?: string,
      *   keyId?: string,
@@ -88,6 +104,11 @@ final class SecurePayloadConfig
      *   ed25519SecretKeyB64?: string|null,
      *   ed25519PublicKeyServerB64?: string|null,
      *   ed25519SecretKeyServerB64?: string|null,
+     *   mldsaSecretKeyB64?: string|null,
+     *   mldsaPublicKeyB64?: string|null,
+     *   mldsaSecretKeyServerB64?: string|null,
+     *   mldsaPublicKeyServerB64?: string|null,
+     *   pqSigner?: PqSignerInterface|null,
      *   aeadKeyB64?: string|null,
      *   keyLoader?: callable|null,
      *   replayStore?: callable|null,
@@ -124,6 +145,12 @@ final class SecurePayloadConfig
         $this->ed25519SecretKeyB64 = $opts['ed25519SecretKeyB64'] ?? null;
         $this->ed25519PublicKeyServerB64 = $opts['ed25519PublicKeyServerB64'] ?? null;
         $this->ed25519SecretKeyServerB64 = $opts['ed25519SecretKeyServerB64'] ?? null;
+        $this->mldsaSecretKeyB64 = $opts['mldsaSecretKeyB64'] ?? null;
+        $this->mldsaPublicKeyB64 = $opts['mldsaPublicKeyB64'] ?? null;
+        $this->mldsaSecretKeyServerB64 = $opts['mldsaSecretKeyServerB64'] ?? null;
+        $this->mldsaPublicKeyServerB64 = $opts['mldsaPublicKeyServerB64'] ?? null;
+        $pq = $opts['pqSigner'] ?? null;
+        $this->pqSigner = $pq instanceof PqSignerInterface ? $pq : null;
         $this->signAlg = $opts['signAlg'] ?? 'hmac';
         $this->keyLoader = $opts['keyLoader'] ?? null;
         $this->replayStore = $opts['replayStore'] ?? null;
@@ -161,8 +188,14 @@ final class SecurePayloadConfig
         if (!in_array($this->mode, ['hmac', 'aead', 'both'], true)) {
             throw new SecurePayloadException('Mode tidak valid: ' . $this->mode, SecurePayloadException::BAD_REQUEST);
         }
-        if (!in_array($this->signAlg, ['hmac', 'ed25519'], true)) {
+        if (!in_array($this->signAlg, ['hmac', 'ed25519', SecurePayload::SIGN_ALG_HYBRID], true)) {
             throw new SecurePayloadException('signAlg tidak valid: ' . $this->signAlg, SecurePayloadException::BAD_REQUEST);
+        }
+        if ($this->signAlg === SecurePayload::SIGN_ALG_HYBRID && $this->pqSigner === null) {
+            throw new SecurePayloadException(
+                'signAlg hybrid-mldsa44-ed25519 memerlukan opsi pqSigner (PqSignerInterface)',
+                SecurePayloadException::BAD_REQUEST
+            );
         }
         // Validasi panjang secret key Ed25519 client jika disuplai (signing request).
         if (
@@ -224,10 +257,49 @@ final class SecurePayloadConfig
         return $this->mode;
     }
 
-    /** @return 'hmac'|'ed25519' */
+    /** @return 'hmac'|'ed25519'|'hybrid-mldsa44-ed25519' */
     public function getSignAlg(): string
     {
         return $this->signAlg;
+    }
+
+    public function getPqSigner(): ?PqSignerInterface
+    {
+        return $this->pqSigner;
+    }
+
+    public function getMldsaPublicKeyB64(): ?string
+    {
+        return $this->mldsaPublicKeyB64;
+    }
+
+    public function getMldsaSecretKeyB64(): ?string
+    {
+        return $this->mldsaSecretKeyB64;
+    }
+
+    public function getMldsaPublicKeyServerB64(): ?string
+    {
+        return $this->mldsaPublicKeyServerB64;
+    }
+
+    public function getMldsaSecretKeyServerB64(): ?string
+    {
+        return $this->mldsaSecretKeyServerB64;
+    }
+
+    /**
+     * Nama algoritma untuk header X-Signature-Algorithm sesuai signAlg.
+     */
+    public function expectedSignatureAlgHeader(): string
+    {
+        if ($this->signAlg === 'ed25519') {
+            return SecurePayload::ED25519_ALG;
+        }
+        if ($this->signAlg === SecurePayload::SIGN_ALG_HYBRID) {
+            return SecurePayload::HYBRID_ALG;
+        }
+        return SecurePayload::HMAC_ALG;
     }
 
     public function getVersion(): string
@@ -356,6 +428,9 @@ final class SecurePayloadConfig
      */
     public function signCanonical(string $msg): array
     {
+        if ($this->signAlg === SecurePayload::SIGN_ALG_HYBRID) {
+            return $this->signHybrid($msg, false);
+        }
         if ($this->signAlg === 'ed25519') {
             $this->ensureSodium();
             $sk = $this->getEd25519SecretKeyRaw();
@@ -366,6 +441,61 @@ final class SecurePayloadConfig
         $signKey = $this->deriveSubkey((string) $this->hmacSecretRaw, SecurePayload::KDF_PURPOSE_SIGN_REQ);
         $hmac = hash_hmac('sha256', $msg, $signKey, true);
         return [base64_encode($hmac), SecurePayload::HMAC_ALG];
+    }
+
+    /**
+     * Tanda tangan hybrid: base64(ed25519_sig (64) || mldsa_sig).
+     *
+     * @return array{0:string,1:string}
+     */
+    public function signHybrid(string $msg, bool $forResponse): array
+    {
+        $this->ensureSodium();
+        if ($this->pqSigner === null) {
+            throw new SecurePayloadException(
+                'pqSigner wajib untuk signAlg hybrid',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
+        if ($forResponse) {
+            $sk = $this->getEd25519SecretKeyServerRaw();
+        } else {
+            $sk = $this->getEd25519SecretKeyRaw();
+        }
+        $edSig = sodium_crypto_sign_detached($msg, $sk);
+        $pqSig = $this->pqSigner->sign($msg);
+        if (strlen($pqSig) !== PqSignerInterface::MLDSA44_SIG_BYTES) {
+            throw new SecurePayloadException(
+                'Panjang signature ML-DSA tidak valid (ekspektasi ' . PqSignerInterface::MLDSA44_SIG_BYTES . ' byte)',
+                SecurePayloadException::SERVER_ERROR
+            );
+        }
+        return [base64_encode($edSig . $pqSig), SecurePayload::HYBRID_ALG];
+    }
+
+    /**
+     * Verifikasi signature hybrid terhadap public key Ed25519 + ML-DSA.
+     */
+    public function verifyHybrid(string $msg, string $sigB64, string $ed25519Pub, string $mldsaPub): bool
+    {
+        $this->ensureSodium();
+        if ($this->pqSigner === null) {
+            throw new SecurePayloadException(
+                'pqSigner wajib untuk verifikasi hybrid',
+                SecurePayloadException::SERVER_ERROR
+            );
+        }
+        $raw = base64_decode($sigB64, true);
+        $need = SODIUM_CRYPTO_SIGN_BYTES + PqSignerInterface::MLDSA44_SIG_BYTES;
+        if (!is_string($raw) || strlen($raw) !== $need) {
+            return false;
+        }
+        $edSig = substr($raw, 0, SODIUM_CRYPTO_SIGN_BYTES);
+        $pqSig = substr($raw, SODIUM_CRYPTO_SIGN_BYTES);
+        if (!sodium_crypto_sign_verify_detached($edSig, $msg, $ed25519Pub)) {
+            return false;
+        }
+        return $this->pqSigner->verify($msg, $pqSig, $mldsaPub);
     }
 
     public function getEd25519SecretKeyRaw(): string

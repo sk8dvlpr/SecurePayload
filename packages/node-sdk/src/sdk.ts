@@ -56,7 +56,7 @@ function collectBoundHeaders(all: Record<string, string>, bindHeaders: string[])
 }
 
 export class SecurePayloadNode {
-  static readonly DEFAULT_VERSION = '3';
+  static readonly DEFAULT_VERSION = '4';
 
   private readonly mode: 'hmac' | 'aead' | 'both';
   private readonly signAlg: 'hmac' | 'ed25519';

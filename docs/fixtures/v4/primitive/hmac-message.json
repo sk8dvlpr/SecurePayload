@@ -1,0 +1,20 @@
+{
+    "id": "hmac-message-v4",
+    "input": {
+        "version": "4",
+        "clientId": "conf-client",
+        "keyId": "conf-key-v1",
+        "timestamp": "1700000000",
+        "nonce_b64": "AQEBAQEBAQEBAQEBAQEBAQ==",
+        "method": "POST",
+        "path": "/v1/pay",
+        "query": {
+            "a": "1",
+            "b": "2"
+        },
+        "body_digest_b64": "TUu+Wcaq0iRCzeGZpqil8DRAX814+1qBwk7ySd4cRfE="
+    },
+    "expected": {
+        "message": "v4\nclient=conf-client\nkey=conf-key-v1\nts=1700000000\nnonce=AQEBAQEBAQEBAQEBAQEBAQ==\nm=POST\np=/v1/pay\nq=a=1&b=2\nbd=sha256:TUu+Wcaq0iRCzeGZpqil8DRAX814+1qBwk7ySd4cRfE=\n"
+    }
+}

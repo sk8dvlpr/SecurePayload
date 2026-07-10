@@ -1,6 +1,6 @@
-# SecurePayload Protocol Specification (Version 3)
+# SecurePayload Protocol Specification (Version 3 / 4)
 
-Normative reference for interoperable implementations. The PHP reference library is `sk8dvlpr/securepayload` (`SecurePayload::DEFAULT_VERSION = '3'`).
+Normative reference for interoperable implementations. The PHP reference library is `sk8dvlpr/securepayload` (`SecurePayload::DEFAULT_VERSION = '4'` as of 3.0.0; fixtures under `docs/fixtures/v3/` remain the byte-exact v3 corpus).
 
 **Conformance:** JSON test vectors in `docs/fixtures/v3/`; validated by `tests/Conformance/`.
 
@@ -381,7 +381,18 @@ Client sends `X-Client-Id` + `X-Key-Id`; server resolves secrets via key store.
 
 ## 12. Version History (Appendix)
 
-### Version 3 (current)
+### Version 4 (current default)
+
+- Default `SecurePayload::DEFAULT_VERSION = '4'`.
+- Non-file JSON request/response wire identical to v3 (canonicalization, HMAC, AEAD AAD, HKDF labels bind to version string `"4"`).
+- **Multipart file stream** (optional): HTTP body is `multipart/form-data` with parts:
+  - `payload` — SecurePayload-secured body of the **manifest** (same as `buildHeadersAndBody` output for the manifest array)
+  - `ciphertext` — secretstream ciphertext bytes (`application/octet-stream`)
+- Marker header: `X-SP-Multipart: 1`
+- Signature / body digest / AEAD cover the **payload part** (manifest), not the full multipart body. Server extracts `payload` then calls `verify()`, then `verifyFileStream()` on `ciphertext`.
+- One instance accepts **only** its configured version (no dual-accept of v3 and v4 on the same object). Use `version => '3'` for legacy.
+
+### Version 3
 
 - AEAD AAD binds `timestamp` + optional `bindHeaders` (breaking vs v2).
 - HKDF `deriveKeys` opt-in.
@@ -406,10 +417,13 @@ Implementations **must** reject mismatched `X-Signature-Version` / `X-Resp-Signa
 
 | Resource | Path |
 |----------|------|
-| Test vectors | `docs/fixtures/v3/` |
+| Test vectors (v3) | `docs/fixtures/v3/` |
+| Test vectors (v4 primitives) | `docs/fixtures/v4/` |
 | Generator | `tools/generate-protocol-fixtures.php` |
 | PHP implementation | `src/SecurePayload.php` (facade); primitives in `src/Protocol/` |
 | Conformance tests | `tests/Conformance/` |
+| Post-quantum hybrid | `docs/POST_QUANTUM.md` |
+| RFC 9421 bridge | `docs/RFC9421_BRIDGE.md` |
 
 Static helpers exposed for cross-language ports:
 

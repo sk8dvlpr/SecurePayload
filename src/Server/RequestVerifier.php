@@ -88,12 +88,17 @@ final class RequestVerifier
         $hmacRaw = null;
         $aeadB64 = null;
         $ed25519PubB64 = null;
+        $mldsaPubB64 = null;
         $keyLoader = $this->config->getKeyLoader();
         if ($keyLoader) {
             $keys = (array) call_user_func($keyLoader, $cid, $kid);
             $hmacRaw = $keys['hmacSecret'] ?? null;
             $aeadB64 = $keys['aeadKeyB64'] ?? null;
             $ed25519PubB64 = $keys['ed25519PublicKeyB64'] ?? null;
+            $mldsaPubB64 = $keys['mldsaPublicKeyB64'] ?? null;
+        }
+        if ($mldsaPubB64 === null || $mldsaPubB64 === '') {
+            $mldsaPubB64 = $this->config->getMldsaPublicKeyB64();
         }
 
         $result = ['mode' => null, 'bodyPlain' => null, 'json' => null];
@@ -192,7 +197,7 @@ final class RequestVerifier
 
             // Algoritma ditentukan oleh konfigurasi server (signAlg), BUKAN oleh header.
             // Header yang tidak cocok ditolak untuk mencegah downgrade tanda tangan.
-            $expectedAlg = $this->config->getSignAlg() === 'ed25519' ? SecurePayload::ED25519_ALG : SecurePayload::HMAC_ALG;
+            $expectedAlg = $this->config->expectedSignatureAlgHeader();
             if ($alg !== $expectedAlg || $sigIn === '' || $digH === '') {
                 throw new SecurePayloadException('Header tanda tangan tidak lengkap/salah algoritma', SecurePayloadException::BAD_REQUEST, ['terima' => $alg, 'ekspektasi' => $expectedAlg]);
             }
@@ -214,7 +219,23 @@ final class RequestVerifier
             // 2. Verifikasi Signature sesuai algoritma
             $msg = Messages::hmacMessage($this->config->getVersion(), $cid, $kid, $tsStr, $nonceB64, $method, $path, $qStr, $calcDig);
 
-            if ($this->config->getSignAlg() === 'ed25519') {
+            if ($this->config->getSignAlg() === SecurePayload::SIGN_ALG_HYBRID) {
+                $this->config->ensureSodium();
+                $pub = base64_decode($ed25519PubB64 ?? '', true);
+                $mldsaPub = base64_decode($mldsaPubB64 ?? '', true);
+                if (!is_string($pub) || strlen($pub) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+                    $this->config->emitEvent(SecurePayload::EVENT_KEY_NOT_FOUND, ['clientId' => $cid, 'keyId' => $kid, 'kind' => 'ed25519_public']);
+                    throw new SecurePayloadException('Public key Ed25519 tidak valid/tersedia untuk hybrid', SecurePayloadException::SERVER_ERROR);
+                }
+                if (!is_string($mldsaPub) || $mldsaPub === '') {
+                    $this->config->emitEvent(SecurePayload::EVENT_KEY_NOT_FOUND, ['clientId' => $cid, 'keyId' => $kid, 'kind' => 'mldsa_public']);
+                    throw new SecurePayloadException('Public key ML-DSA tidak valid/tersedia untuk hybrid', SecurePayloadException::SERVER_ERROR);
+                }
+                if (!$this->config->verifyHybrid($msg, $sigIn, $pub, $mldsaPub)) {
+                    $this->config->emitEvent(SecurePayload::EVENT_SIGNATURE_INVALID, ['clientId' => $cid, 'keyId' => $kid, 'alg' => 'hybrid']);
+                    throw new SecurePayloadException('Tanda Tangan (hybrid) tidak valid', SecurePayloadException::UNAUTHORIZED);
+                }
+            } elseif ($this->config->getSignAlg() === 'ed25519') {
                 $this->config->ensureSodium();
                 $pub = base64_decode($ed25519PubB64 ?? '', true);
                 if (!is_string($pub) || strlen($pub) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {

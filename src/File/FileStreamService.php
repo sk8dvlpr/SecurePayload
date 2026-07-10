@@ -267,4 +267,89 @@ final class FileStreamService
             @unlink($destPath);
         }
     }
+
+    /**
+     * Bangun body multipart/form-data (v4): part `payload` + `ciphertext`.
+     *
+     * @return array{boundary:string, body:string, content_type:string}
+     */
+    public static function buildMultipartBody(string $securedPayload, string $ciphertextBytes, ?string $boundary = null): array
+    {
+        $boundary = $boundary ?? ('sp-' . bin2hex(random_bytes(12)));
+        $crlf = "\r\n";
+        $body = '';
+        $body .= '--' . $boundary . $crlf;
+        $body .= 'Content-Disposition: form-data; name="payload"' . $crlf;
+        $body .= 'Content-Type: application/json' . $crlf . $crlf;
+        $body .= $securedPayload . $crlf;
+        $body .= '--' . $boundary . $crlf;
+        $body .= 'Content-Disposition: form-data; name="ciphertext"; filename="blob.bin"' . $crlf;
+        $body .= 'Content-Type: application/octet-stream' . $crlf . $crlf;
+        $body .= $ciphertextBytes . $crlf;
+        $body .= '--' . $boundary . '--' . $crlf;
+
+        return [
+            'boundary' => $boundary,
+            'body' => $body,
+            'content_type' => 'multipart/form-data; boundary=' . $boundary,
+        ];
+    }
+
+    /**
+     * Parse body multipart sederhana (hanya part payload + ciphertext).
+     *
+     * @return array{payload:string, ciphertext:string}
+     * @throws SecurePayloadException
+     */
+    public static function parseMultipartBody(string $body, string $contentType): array
+    {
+        if (!preg_match('/boundary=([^;\s]+)/i', $contentType, $m)) {
+            throw new SecurePayloadException(
+                'Content-Type multipart tanpa boundary',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
+        $boundary = trim($m[1], " \t\"'");
+        $parts = preg_split('/\r\n--' . preg_quote($boundary, '/') . '(?:--)?\r\n/', "\r\n" . $body);
+        if ($parts === false) {
+            throw new SecurePayloadException('Gagal parse multipart', SecurePayloadException::BAD_REQUEST);
+        }
+
+        $payload = null;
+        $ciphertext = null;
+        foreach ($parts as $part) {
+            $part = ltrim($part, "\r\n");
+            if ($part === '' || $part === '--') {
+                continue;
+            }
+            // Hilangkan penutup akhir --
+            if (str_ends_with($part, '--')) {
+                $part = substr($part, 0, -2);
+            }
+            $sep = strpos($part, "\r\n\r\n");
+            if ($sep === false) {
+                continue;
+            }
+            $rawHeaders = substr($part, 0, $sep);
+            $content = substr($part, $sep + 4);
+            // Trim trailing CRLF yang ditambahkan builder
+            if (str_ends_with($content, "\r\n")) {
+                $content = substr($content, 0, -2);
+            }
+            if (preg_match('/name="payload"/i', $rawHeaders)) {
+                $payload = $content;
+            } elseif (preg_match('/name="ciphertext"/i', $rawHeaders)) {
+                $ciphertext = $content;
+            }
+        }
+
+        if ($payload === null || $ciphertext === null) {
+            throw new SecurePayloadException(
+                'Multipart harus berisi part payload dan ciphertext',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
+
+        return ['payload' => $payload, 'ciphertext' => $ciphertext];
+    }
 }

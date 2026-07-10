@@ -1,7 +1,7 @@
 package securepayload
 
 const (
-	DefaultVersion = "3"
+	DefaultVersion = "4"
 
 	HMACAlg   = "HMAC-SHA256"
 	Ed25519Alg = "ED25519"

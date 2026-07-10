@@ -1,6 +1,6 @@
 # SecurePayload — Agent Guide
 
-Library: `sk8dvlpr/securepayload` v2.10.0 | Protocol version: `3`
+Library: `sk8dvlpr/securepayload` v3.1.0 | Protocol version: `4`
 
 ## Before Any Code Change
 
@@ -19,10 +19,11 @@ Library: `sk8dvlpr/securepayload` v2.10.0 | Protocol version: `3`
 - `signAlg` determined by server config (anti-downgrade) — applies to request **and** response
 - `deriveKeys` and `bindHeaders` must match on client and server
 - Ed25519 request: client keypair; Ed25519 response: server keypair (`ed25519PublicKeyServerB64` / `ed25519SecretKeyServerB64`)
+- Hybrid PQ (`hybrid-mldsa44-ed25519`): requires injected `pqSigner`; wire = Ed25519‖ML-DSA
 
 ## Roadmap
 
-Phases 1–17 done. Full plan: `docs/ROADMAP.md`
+Phases 1–18 done. Full plan: `docs/ROADMAP.md`
 
 ## SecurePayload Skills
 

@@ -1,5 +1,40 @@
 # Changelog
 
+## [3.1.0] - 2026-07-10
+### Added
+- **Post-quantum hybrid signing (Phase 18d)**:
+  - `signAlg` = `hybrid-mldsa44-ed25519` (`SecurePayload::SIGN_ALG_HYBRID`)
+  - Header algorithm `HYBRID-MLDSA44-ED25519` — wire: `base64(ed25519_sig ‖ mldsa_sig)`
+  - `SecurePayload\Crypto\PqSignerInterface` + opsi konstruktor `pqSigner` (wajib untuk hybrid)
+  - Field kunci: `mldsaSecretKeyB64`, `mldsaPublicKeyB64`, `mldsaSecretKeyServerB64`, `mldsaPublicKeyServerB64`
+  - `docs/POST_QUANTUM.md`
+
+### Notes
+- Opt-in; tanpa `pqSigner` konstruktor gagal. Stub tes bukan kriptografi PQ nyata.
+
+## [3.0.0] - 2026-07-10
+### Changed
+- **Wire protocol v4 (Phase 18c)** — `SecurePayload::DEFAULT_VERSION = '4'` (breaking default).
+  - Non-file JSON sama seperti v3; label HKDF/AAD memakai string versi `"4"`.
+  - Satu instance hanya menerima versi yang dikonfigurasi (tidak dual-accept).
+  - Gunakan `version => '3'` untuk kompatibilitas eksplisit.
+
+### Added
+- Multipart file stream: `buildFileStreamMultipartRequest()` / `verifyFileStreamMultipart()`
+  - Body HTTP: parts `payload` (body SP manifest) + `ciphertext`; header `X-SP-Multipart: 1`
+- `docs/fixtures/v4/` (primitive minimal) + `V4PrimitiveVectorsTest`
+- Node/Go SDK: `DEFAULT_VERSION` / `DefaultVersion` = `"4"`
+
+## [2.11.0] - 2026-07-10
+### Added
+- **RFC 9421 bridge (Phase 18b)**: `SecurePayload\Interop\Rfc9421Bridge`
+  - `exportFromSecureHeaders()` → `Signature-Input` / `Signature` / `Content-Digest`
+  - `verifyMapped()` — validasi digest + komponen wajib, lalu `SecurePayload::verify()`
+  - `docs/RFC9421_BRIDGE.md`, `examples/interop/rfc9421.php`
+
+### Notes
+- Aditif; tidak mengubah wire SP. Go middleware (Phase 18a) di `packages/go-sdk/middleware`.
+
 ## [2.10.0] - 2026-07-10
 ### Added
 - **Ekosistem & Observability (Phase 17)**:

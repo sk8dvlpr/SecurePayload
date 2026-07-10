@@ -9,7 +9,7 @@ description: Explains SecurePayload library architecture, execution flows, modul
 
 `sk8dvlpr/securepayload` — framework-agnostic PHP 8.0+ library for securing S2S HTTP requests: HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, anti-replay. Single class acts as **both** client and server depending on which methods are called.
 
-**Current:** library v2.9.0, protocol `DEFAULT_VERSION = '3'`.
+**Current:** library v3.1.0, protocol `DEFAULT_VERSION = '4'`.
 
 ## Module Map
 
@@ -21,15 +21,17 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `src/Protocol/Messages.php` | `hmacMessage`, `respMessage` |
 | `src/Protocol/Aead.php` | AAD builders, `aeadNonceFrom`, `respAeadNonceFrom` |
 | `src/Protocol/Hkdf.php` | `deriveKey` (HKDF-SHA256) |
-| `src/Internal/SecurePayloadConfig.php` | Constructor state + shared crypto helpers (`deriveSubkey`, keys, `collectBoundHeaders`, `emitEvent`) |
+| `src/Internal/SecurePayloadConfig.php` | Constructor state + shared crypto helpers (`deriveSubkey`, keys, `collectBoundHeaders`, `emitEvent`, hybrid sign/verify) |
 | `src/Client/RequestBuilder.php` | `buildHeadersAndBody` |
 | `src/Server/RequestVerifier.php` | `verifyOrThrow` |
 | `src/Server/ReplayGuard.php` | Replay protection + nonce file GC |
 | `src/Response/ResponseBuilder.php` | `buildResponse` |
 | `src/Response/ResponseVerifier.php` | `verifyResponseOrThrow` |
 | `src/File/FilePayloadService.php` | In-memory file (`buildFilePayload`, `verifyFilePayload`) |
-| `src/File/FileStreamService.php` | Streaming file (secretstream) |
+| `src/File/FileStreamService.php` | Streaming file (secretstream) + multipart parse/build (v4) |
 | `src/File/FileValidation.php` | Extension/MIME validation helpers |
+| `src/Interop/Rfc9421Bridge.php` | RFC 9421 export/verifyMapped bridge |
+| `src/Crypto/PqSignerInterface.php` | Injected ML-DSA signer for hybrid `signAlg` |
 | `src/Http/HttpTransportInterface.php` | Pluggable HTTP transport for `send()`/`sendFile()` |
 | `src/Http/CurlTransport.php` | Default cURL transport |
 | `src/Http/Psr18Transport.php` | PSR-18 transport adapter |
@@ -50,12 +52,15 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `src/Observability/OpenTelemetrySecurityExporter.php` | Span OpenTelemetry dari `onSecurityEvent` (opsional) |
 | `src/Webhook/WebhookVerifier.php` | Helper verifikasi webhook (`verifyFromGlobals`) |
 | `examples/` | Framework integration patterns (legacy reference) |
-| `packages/node-sdk/` | Node/TS SDK + Express/Fastify middleware (Phase 17) |
+| `packages/node-sdk/` | Node/TS SDK + Express/Fastify middleware |
+| `packages/go-sdk/` | Go SDK + Gin/Echo/Fiber middleware |
 | `tests/Unit/` | Unit tests |
 | `tests/Integration/` | Round-trip tests |
 | `tests/Security/` | Security regression (spoofing, replay, downgrade, AAD) |
-| `tests/Conformance/` | Protocol v3 JSON fixture vectors (`docs/fixtures/v3/`) |
-| `docs/PROTOCOL.md` | Normative byte-exact protocol spec (v3) |
+| `tests/Conformance/` | Protocol fixture vectors (`docs/fixtures/v3/`, `v4/`) |
+| `docs/PROTOCOL.md` | Normative protocol spec (v3 + v4 appendix) |
+| `docs/RFC9421_BRIDGE.md` | RFC 9421 interop |
+| `docs/POST_QUANTUM.md` | Hybrid ML-DSA signing |
 | `docs/fixtures/` | Portable test vectors + generator |
 
 ## Security Modes
@@ -69,12 +74,14 @@ description: Explains SecurePayload library architecture, execution flows, modul
 `signAlg` mirror for request **and** response:
 - `hmac` (default): HMAC-SHA256 with shared secret both directions
 - `ed25519`: request = client keypair; response = **server** keypair (distinct keys)
+- `hybrid-mldsa44-ed25519`: Ed25519 ‖ ML-DSA-44 via injected `pqSigner` (see `docs/POST_QUANTUM.md`)
 
 | Purpose | Client holds | Server holds (keyLoader) |
 |---------|-------------|--------------------------|
 | Request sign (Ed25519) | `ed25519SecretKeyB64` | `ed25519PublicKeyB64` |
 | Response verify (Ed25519) | `ed25519PublicKeyServerB64` | — |
 | Response sign (Ed25519) | — | `ed25519SecretKeyServerB64` |
+| Hybrid ML-DSA | `mldsa*` + `pqSigner` | `mldsaPublicKeyB64` (+ server keys for response) |
 
 ## Client Entry Points
 
@@ -84,6 +91,7 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `send($url, $method, $payload, $extraHeaders?)` | HTTP via `httpTransport` or CurlTransport fallback |
 | `buildFilePayload()` / `sendFile()` | In-memory file (base64 in JSON, ≤ ~10MB) |
 | `buildFileStream()` | Large file: secretstream per-chunk + manifest |
+| `buildFileStreamMultipartRequest()` | v4 multipart: SP-secured manifest + ciphertext parts |
 | `verifyResponse()` / `verifyResponseOrThrow()` | Verify server response |
 | `SecurePayload::deriveKey()` | Public HKDF helper |
 | `SecurePayload::buildRequestAeadAad()` / `buildResponseAeadAad()` | Public AAD builders (conformance / cross-lang ports) |
@@ -97,6 +105,7 @@ description: Explains SecurePayload library architecture, execution flows, modul
 | `verifySimple(...)` | Same without query arg |
 | `verifyFilePayload(...)` | File attachment + constraints |
 | `verifyFileStream($encPath, $manifest, $destPath, $constraints)` | Streaming decrypt + validate |
+| `verifyFileStreamMultipart(...)` | v4: parse multipart → verify payload → decrypt stream |
 | `buildResponse($requestHeaders, $payload)` | Signed/encrypted response |
 
 Server loads keys via `keyLoader: fn(string $cid, string $kid): array`.

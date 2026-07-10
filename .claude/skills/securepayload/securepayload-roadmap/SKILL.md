@@ -7,21 +7,23 @@ description: SecurePayload development roadmap, phase status, priorities, and sc
 
 **Source of truth:** `docs/ROADMAP.md` — update that file when phases complete.
 
-**Current release:** 2.10.0 | **Protocol version:** 3
+**Current release:** 3.1.0 | **Protocol version:** 4
 
 ## Completed (Do Not Re-Implement)
 
-Phases 1–17 are shipped. See CHANGELOG.md v2.0.0–v2.10.0.
+Phases 1–18 are shipped. See CHANGELOG.md through v3.1.0.
 
-## Next Phases (Priority Order)
+## Phase 18 — Full Backlog ✅
 
-### Phase 17 — Ecosystem & Observability ✅
-OpenTelemetry spans (`OpenTelemetrySecurityExporter`), Express/Fastify middleware (Node SDK), `WebhookVerifier`, `docs/MTLS_DEPLOYMENT.md`. v2.10.0.
+- **18a** Go Gin/Echo/Fiber middleware (`packages/go-sdk/middleware`)
+- **18b** RFC 9421 bridge → 2.11.0
+- **18c** Wire v4 + multipart → 3.0.0 (`DEFAULT_VERSION=4`)
+- **18d** Hybrid ML-DSA44+Ed25519 → 3.1.0
 
 ## Recommended Sequence
 
 ```
-9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17
+9 → … → 17 → 18a → 18b → 18c → 18d ✅
 ```
 
 ## Out of Scope
@@ -69,11 +71,5 @@ Use consistent labels in CHANGELOG entries:
 | Security fix | Patch + Security section |
 
 ## Future Ideas (Not Scheduled)
-
-- RFC 9421 HTTP Message Signatures bridge
-- Post-quantum hybrid signing
-- Webhook verifier wrapper
-- Multipart stream upload (manifest + file in one request)
-- mTLS + SecurePayload documentation
 
 Track new ideas in `docs/ROADMAP.md` under a "Backlog" section only after team agreement.

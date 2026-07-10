@@ -130,7 +130,7 @@ final class ResponseVerifier
             $sigIn = $H[self::upper(SecurePayload::HX_RESP_SIGNATURE)] ?? '';
             $digH = $H[self::upper(SecurePayload::HX_RESP_BODY_DIGEST)] ?? '';
 
-            $expectedAlg = $this->config->getSignAlg() === 'ed25519' ? SecurePayload::ED25519_ALG : SecurePayload::HMAC_ALG;
+            $expectedAlg = $this->config->expectedSignatureAlgHeader();
             if ($alg !== $expectedAlg || $sigIn === '' || $digH === '') {
                 throw new SecurePayloadException(
                     'Header tanda tangan response tidak lengkap/salah algoritma',
@@ -151,7 +151,26 @@ final class ResponseVerifier
 
             $msg = Messages::respMessage($this->config->getVersion(), $reqNonceB64, $respTs, $respNonceB64, $calcDig);
 
-            if ($this->config->getSignAlg() === 'ed25519') {
+            if ($this->config->getSignAlg() === SecurePayload::SIGN_ALG_HYBRID) {
+                $this->config->ensureSodium();
+                $pub = base64_decode($this->config->getEd25519PublicKeyServerB64() ?? '', true);
+                $mldsaPub = base64_decode($this->config->getMldsaPublicKeyServerB64() ?? '', true);
+                if (!is_string($pub) || strlen($pub) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+                    throw new SecurePayloadException(
+                        'Public key Ed25519 server tidak valid/tersedia di client (hybrid)',
+                        SecurePayloadException::BAD_REQUEST
+                    );
+                }
+                if (!is_string($mldsaPub) || $mldsaPub === '') {
+                    throw new SecurePayloadException(
+                        'Public key ML-DSA server tidak valid/tersedia di client (hybrid)',
+                        SecurePayloadException::BAD_REQUEST
+                    );
+                }
+                if (!$this->config->verifyHybrid($msg, $sigIn, $pub, $mldsaPub)) {
+                    throw new SecurePayloadException('Tanda Tangan response (hybrid) tidak valid', SecurePayloadException::UNAUTHORIZED);
+                }
+            } elseif ($this->config->getSignAlg() === 'ed25519') {
                 $this->config->ensureSodium();
                 $pub = base64_decode($this->config->getEd25519PublicKeyServerB64() ?? '', true);
                 if (!is_string($pub) || strlen($pub) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {

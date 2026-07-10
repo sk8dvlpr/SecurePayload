@@ -1,0 +1,21 @@
+{
+    "id": "normalize-path",
+    "cases": [
+        {
+            "input": "/api/v1/resource",
+            "expected": "/api/v1/resource"
+        },
+        {
+            "input": "/api/v1/",
+            "expected": "/api/v1"
+        },
+        {
+            "input": "/",
+            "expected": "/"
+        },
+        {
+            "input": "",
+            "expected": "/"
+        }
+    ]
+}
