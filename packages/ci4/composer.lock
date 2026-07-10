@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d1b4cd493004364a06afbf5e77db2a32",
+    "content-hash": "b5e69f33a5dcdd7c7c7edd3e4e0996e9",
     "packages": [
         {
             "name": "codeigniter4/framework",
@@ -196,11 +196,11 @@
         },
         {
             "name": "sk8dvlpr/securepayload",
-            "version": "2.7.0",
+            "version": "3.1.0",
             "dist": {
                 "type": "path",
                 "url": "../..",
-                "reference": "b8e3b2af5e065cc226f73911f898fc82f7e2a6ca"
+                "reference": "9056047c69b474edaa390c01c9da1b7499820193"
             },
             "require": {
                 "ext-hash": "*",
@@ -210,12 +210,20 @@
             "require-dev": {
                 "phpstan/phpstan": "^1.11",
                 "phpunit/phpunit": "^9.6 || ^10.5",
+                "psr/http-client": "^1.0",
+                "psr/http-factory": "^1.0",
+                "psr/http-message": "^1.1|^2.0",
                 "psr/simple-cache": "^1.0 || ^2.0 || ^3.0"
             },
             "suggest": {
                 "aws/aws-sdk-php": "Required only if you use AwsKms to wrap/unwrap keys via AWS KMS",
-                "ext-curl": "Required if you use the send() helper",
+                "azure/keyvault-keys": "Required only if you use AzureKeyVaultKms to wrap/unwrap keys via Azure Key Vault",
+                "ext-curl": "Required for default CurlTransport fallback in send()/sendFile()",
                 "ext-sodium": "Required for AEAD (XChaCha20-Poly1305) mode",
+                "google/cloud-kms": "Required only if you use GcpKms to wrap/unwrap keys via GCP Cloud KMS",
+                "open-telemetry/sdk": "Required only if you use OpenTelemetrySecurityExporter with a real tracer",
+                "psr/http-client": "Required for SecurePayload\\Http\\Psr18Transport",
+                "psr/http-factory": "Required for SecurePayload\\Http\\Psr18Transport",
                 "psr/simple-cache": "Required only if you use Psr16ReplayStore to back replay protection with a PSR-16 cache"
             },
             "type": "library",

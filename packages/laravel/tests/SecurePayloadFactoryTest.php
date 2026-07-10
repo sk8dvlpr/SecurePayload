@@ -17,7 +17,7 @@ final class SecurePayloadFactoryTest extends TestCase
 
     public function testConfigMerged(): void
     {
-        $this->assertSame('3', config('securepayload.version'));
+        $this->assertSame(SecurePayload::DEFAULT_VERSION, config('securepayload.version'));
     }
 
     public function testCreateClientWithHmac(): void

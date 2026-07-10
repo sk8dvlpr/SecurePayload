@@ -20,7 +20,7 @@ final class Configuration implements ConfigurationInterface
         $root
             ->children()
                 ->scalarNode('mode')->defaultValue('both')->end()
-                ->scalarNode('version')->defaultValue('3')->end()
+                ->scalarNode('version')->defaultValue(\SecurePayload\SecurePayload::DEFAULT_VERSION)->end()
                 ->scalarNode('sign_alg')->defaultValue('hmac')->end()
                 ->booleanNode('derive_keys')->defaultFalse()->end()
                 ->integerNode('replay_ttl')->defaultValue(120)->end()

@@ -9,10 +9,10 @@ use SecurePayload\SecurePayload;
 
 final class SecurePayloadFactoryTest extends TestCase
 {
-    public function testDefaultConfigHasVersionThree(): void
+    public function testDefaultConfigHasProtocolDefaultVersion(): void
     {
         $config = SecurePayloadFactory::defaultConfig();
-        $this->assertSame('3', $config['version']);
+        $this->assertSame(SecurePayload::DEFAULT_VERSION, $config['version']);
     }
 
     public function testCreateClient(): void

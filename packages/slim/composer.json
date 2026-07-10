@@ -10,7 +10,7 @@
     "psr/http-server-middleware": "^1.0",
     "psr/http-client": "^1.0",
     "psr/http-factory": "^1.0",
-    "sk8dvlpr/securepayload": "^2.7"
+    "sk8dvlpr/securepayload": "^2.7 || ^3.0"
   },
   "suggest": {
     "guzzlehttp/guzzle": "PSR-18 client implementation"

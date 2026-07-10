@@ -17,14 +17,14 @@ final class SecurePayloadFactoryTest extends TestCase
         $config = $processor->processConfiguration(new Configuration(), [[]]);
 
         $this->assertSame('both', $config['mode']);
-        $this->assertSame('3', $config['version']);
+        $this->assertSame(SecurePayload::DEFAULT_VERSION, $config['version']);
     }
 
     public function testCreateClient(): void
     {
         $config = [
             'mode' => 'hmac',
-            'version' => '3',
+            'version' => SecurePayload::DEFAULT_VERSION,
             'sign_alg' => 'hmac',
             'client' => [
                 'client_id' => 'c1',
@@ -41,7 +41,7 @@ final class SecurePayloadFactoryTest extends TestCase
     {
         $config = [
             'mode' => 'both',
-            'version' => '3',
+            'version' => SecurePayload::DEFAULT_VERSION,
             'server' => ['key_provider' => 'env'],
         ];
 
