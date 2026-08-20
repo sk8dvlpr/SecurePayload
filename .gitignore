@@ -61,7 +61,7 @@ Thumbs.db
 /.gitnexus/
 /.claude/settings.local.json
 /.claude/agents/
-/.claude/skills/gitnexus/
+/.claude/skills/
 /.opencode/agents/
 /.opencode/skills/
 /opencode.json
