@@ -53,6 +53,10 @@ final class SecurePayload
     public const HX_AEAD_NONCE = 'X-AEAD-Nonce';
     /** Header Algoritma AEAD */
     public const HX_AEAD_ALG = 'X-AEAD-Algorithm';
+    /** Header Encoding Payload (mis. kompresi/encoding tambahan atas body) */
+    public const HX_PAYLOAD_ENCODING = 'X-Payload-Encoding';
+    /** Header Kunci Idempotensi */
+    public const HX_IDEMPOTENCY_KEY = 'X-Idempotency-Key';
 
     // --- Header khusus RESPONSE (server menandatangani/mengenkripsi, client memverifikasi) ---
     /** Header Timestamp Response */
@@ -108,6 +112,15 @@ final class SecurePayload
     public const EVENT_SIGNATURE_INVALID = 'signature_invalid';
     public const EVENT_KEY_NOT_FOUND = 'key_not_found';
     public const EVENT_NONCE_MISMATCH = 'nonce_mismatch';
+    public const EVENT_FILE_STORED = 'file_stored';
+    public const EVENT_FILE_ACCESSED = 'file_accessed';
+    public const EVENT_FILE_ACCESS_DENIED = 'file_access_denied';
+    public const EVENT_FILE_DELETED = 'file_deleted';
+    /** Plaintext berhasil di-watermark oleh hook beforeStream di retrieveStream() (plan §5.4). */
+    public const EVENT_FILE_WATERMARKED = 'file_watermarked';
+    /** Hook watermark forensik melempar exception — streaming dibatalkan fail-closed (plan §5.4). */
+    public const EVENT_FILE_WATERMARK_FAILED = 'file_watermark_failed';
+    public const EVENT_PAYLOAD_SCHEMA_INVALID = 'payload_schema_invalid';
 
     private SecurePayloadConfig $config;
     private RequestBuilder $requestBuilder;
@@ -142,6 +155,8 @@ final class SecurePayload
      *   clockSkew?: int,
      *   bindHeaders?: list<string>,
      *   deriveKeys?: bool,
+     *   compress?: bool,
+     *   payloadSchema?: array<string,mixed>,
      *   onSecurityEvent?: callable|null,
      *   clock?: callable|null,
      *   nonceGenerator?: callable|null,

@@ -2,7 +2,7 @@
 
 Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent merujuk ke file ini: `.claude/skills/securepayload/securepayload-roadmap/SKILL.md`.
 
-**Versi library saat ini:** 3.1.0  
+**Versi library saat ini:** 3.2.0  
 **Versi protokol default:** `4` (`SecurePayload::DEFAULT_VERSION`)
 
 ---
@@ -34,6 +34,8 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 | 18b | RFC 9421 HTTP Message Signatures bridge | 2.11.0 | ✅ Done |
 | 18c | Wire protocol v4 + multipart stream | 3.0.0 | ✅ Done |
 | 18d | Post-quantum hybrid signing (ML-DSA44+Ed25519) | 3.1.0 | ✅ Done |
+| M1 (plan §5.4) | Watermark forensik `retrieveStream()` | — | ✅ Done |
+| M6 | Dashboard admin MVP (`JsonlSecurityEventExporter` + viewer read-only) | — | ✅ Done |
 
 ---
 
@@ -58,7 +60,7 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 - `DbKeyProvider` + `useKeyLifecycle=true` (opt-in, backward compatible)
 - `KeyManager::rotateKey()`, `revokeKey()`, `purgeExpiredRetiringKeys()`
 - `KeyRotationResult` + SQL migrasi (`toSqlUpdateRetiring`, `toSqlInsertNew`)
-- Dokumentasi: `docs/KEY_ROTATION.md`, `docs/migrations/001_key_lifecycle.sql`
+- Dokumentasi: `docs/KEY_LIFECYCLE.md`, `docs/migrations/001_key_lifecycle.sql`
 - Wire protocol tidak berubah; client tetap kirim `X-Key-Id` eksplisit
 
 ---
@@ -197,6 +199,48 @@ Dokumen ini adalah **source of truth** untuk roadmap library. Skill agent meruju
 - **18d:** `PqSignerInterface`, `signAlg=hybrid-mldsa44-ed25519`, `docs/POST_QUANTUM.md`
 
 **Catatan 18c:** Dual-support v3 via `version => '3'` eksplisit; satu instance tidak auto-accept kedua versi.
+
+---
+
+## Milestone M1 — Watermark Forensik (plan §5.4) ✅ Done
+
+**Tujuan:** Jejak forensik pada jalur distribusi dokumen — identitas pemegang disisipkan ke plaintext SEBELUM streaming, sehingga bocoran dari sisi berwenang tetap terlacak.
+
+**Diimplementasikan:**
+- `SecureFileStorage::retrieveStream($m, $sink, $opts)` — opsi `beforeStream` (hook watermark, kontrak `callable(string $plain, FileManifest $m, array $ctx): string`) dan `requester` (konteks peminta non-secret via `$ctx`)
+- Fail-closed: hook jalan sebelum chunk pertama; gagal = NOL byte body terkirim (`SERVER_ERROR`, previous ter-chain + event)
+- Event: `EVENT_FILE_WATERMARKED` / `EVENT_FILE_WATERMARK_FAILED` (dikenali exporter Prometheus & OTel)
+- `composer suggest += mpdf/mpdf` (opsional); docs FILE_STORAGE/SECURE_DELIVERY + example endpoint
+- Wire protocol tidak berubah (aditif); backward compatible — panggilan 2-argumen lama tetap valid
+
+**Catatan:** `retrieve()` sengaja tidak di-hook pada v1 (restore/arsip internal, bukan jalur distribusi).
+
+---
+
+## Milestone M6 — Dashboard Admin MVP ✅ Done
+
+**Tujuan:** Jalur persistensi resmi ringan untuk `onSecurityEvent` + viewer read-only — library tetap tidak menyimpan apa pun tanpa wiring eksplisit dari aplikasi.
+
+**Diimplementasikan:**
+- `src/Observability/JsonlSecurityEventExporter.php` — append JSONL atomik (`flock LOCK_EX`), rotasi by-size ke `<path>.N` (`maxSizeBytes`/`maxFiles`), clock injectable; gagal I/O tidak pernah throw (semantik EventEmitter) → `getLastError()`
+- Viewer `examples/dashboard/index.php` — ringkasan per event/client_id, N event terakhir, panel umur KEK (nama saja via env); XSS-safe (`htmlspecialchars`), path log hanya env `SP_EVENT_LOG`, read-only total (405 non GET/HEAD)
+- Docs: [`docs/DASHBOARD.md`](DASHBOARD.md) + placeholder auth snippet
+
+**Catatan:** MVP single-file/tail 8 MiB; wire protocol tidak berubah.
+
+---
+
+## Fase Berikutnya — Kandidat (Belum Dijadwalkan)
+
+Fitur lanjutan (rencana implementasi lanjutan yang telah tuntas seluruhnya) tersedia dan terdokumentasi: penyimpanan file aman ([`docs/FILE_STORAGE.md`](FILE_STORAGE.md)), secure delivery ([`docs/SECURE_DELIVERY.md`](SECURE_DELIVERY.md)), key lifecycle + dekripsi arsip ([`docs/KEY_LIFECYCLE.md`](KEY_LIFECYCLE.md)), serta idempotency/kompresi/schema ([`docs/IDEMPOTENCY.md`](IDEMPOTENCY.md)).
+
+Kandidat fase terpisah berikutnya:
+
+| Kandidat | Isi | Catatan |
+|----------|-----|---------|
+| SDK mobile & Python | Native binding React Native (`react-native-quick-crypto`) + SDK Python | Untuk sign/verify langsung di mobile dan konsumer backend data/ML |
+| Gateway plugin | Lua module Kong/Nginx, filter Envoy | Verifikasi di layer gateway sebelum request sampai ke aplikasi |
+| Dashboard admin | UI ringan di atas data `onSecurityEvent`/KMS: client aktif, umur kunci, riwayat event keamanan & akses file | ✅ MVP tuntas (bagian M6, [`docs/DASHBOARD.md`](DASHBOARD.md)); lanjutan filter/timeline/multi-host belum dijadwalkan |
 
 ---
 

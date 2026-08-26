@@ -1,0 +1,51 @@
+# Demo lokal SecurePayload ext_authz: envoy + authz + upstream echo.
+#
+# Jalankan:
+#   export SP_SECRET="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"  # Linux/macOS
+#   # PowerShell: -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+#   docker compose up --build
+#
+# Lalu kirim request ter-tanda-tangan (lihat README.md bagian demo).
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.31.2
+    command:
+      - "-c"
+      - "/etc/envoy/envoy.yaml"
+      - "--service-cluster"
+      - "front-proxy"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports:
+      - "10000:10000" # ingress (demo)
+      - "127.0.0.1:9901:9901" # admin, hanya localhost
+    depends_on:
+      - authz
+      - echo
+
+  authz:
+    build:
+      # Context = packages/ agar replace ../go-sdk (module lokal) ikut terbangun.
+      context: ../..
+      dockerfile: envoy-authz/Dockerfile
+    environment:
+      # WAJIB diisi dari luar; jangan menaruh secret asli di file ini.
+      SP_SECRET: "${SP_SECRET:?export SP_SECRET dulu (minimal 32 karakter)}"
+      SP_MODE: "${SP_MODE:-hmac}"
+      SP_SIGN_ALG: "${SP_SIGN_ALG:-hmac}"
+      SP_CLOCK_SKEW: "${SP_CLOCK_SKEW:-60}"
+      SP_REPLAY_TTL: "${SP_REPLAY_TTL:-120}"
+      SP_LISTEN_ADDR: ":9000"
+    expose:
+      - "9000" # hanya untuk jaringan internal compose; buka port host hanya saat debug
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  echo:
+    image: hashicorp/http-echo:1.0.0
+    command: ["-listen=:8080", "-text=hello from upstream"]
+    expose:
+      - "8080"

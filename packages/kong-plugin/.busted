@@ -1,0 +1,7 @@
+-- Konfigurasi default busted — jalankan `busted` dari root packages/kong-plugin.
+return {
+  all = {
+    lpath = "kong/?.lua;kong/?/init.lua;./?.lua",
+    verbose = true,
+  },
+}

@@ -126,6 +126,25 @@ Cache nonce **bawaan berbasis file** tidak terbagi antar server/worker. Untuk pr
 
 ---
 
+## Penyimpanan File Terenkripsi (`examples/file-storage/`)
+
+Envelope encryption mandiri: DEK acak per file (XChaCha20-Poly1305 secretstream) di-wrap KEK via KMS; blob ciphertext di adapter Local/S3/GCS, manifest (berisi wrapped DEK) dipersist di DB aplikasi Anda.
+
+*   **Skrip CLI runnable**: `examples/file-storage/store_retrieve.php` — store → persist manifest → `retrieveStream()`/`retrieve()` → crypto-shredding (hapus blob + hapus manifest).
+*   Dokumentasi lengkap: [`docs/FILE_STORAGE.md`](../docs/FILE_STORAGE.md).
+
+---
+
+## Secure Delivery — Tautan Unduhan Aman (`examples/secure-delivery/`)
+
+Token URL `sp1.<payload>.<sig>` ber-HMAC-SHA256 dengan kedaluwarsa, opsi sekali-pakai (butuh replayStore), dan binding pemegang. Endpoint broker memverifikasi token, memasang header keamanan (`Cache-Control: no-store`, `X-Content-Type-Options: nosniff`), lalu `retrieveStream()`.
+
+*   **Endpoint contoh**: `examples/secure-delivery/download_endpoint.php` — mode CLI `--issue <file>` menerbitkan URL; jalankan lewat web server (`php -S localhost:8080 ...`) untuk mencoba unduhan.
+*   ⚠️ Modul Storage **tidak boleh** diekspos langsung dari luar — akses selalu lewat endpoint broker.
+*   Dokumentasi lengkap: [`docs/SECURE_DELIVERY.md`](../docs/SECURE_DELIVERY.md).
+
+---
+
 ## Catatan Keamanan (Penting)
 
 1.  **Mode Operasi**: Sebagian besar contoh menggunakan mode `'both'` (Signature + Encryption) karena ini yang paling aman. Pastikan kedua belah pihak (Client & Server) memiliki konfigurasi mode yang sama.

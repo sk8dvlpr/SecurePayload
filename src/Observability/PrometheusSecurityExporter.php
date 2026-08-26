@@ -116,6 +116,13 @@ final class PrometheusSecurityExporter
             SecurePayload::EVENT_SIGNATURE_INVALID,
             SecurePayload::EVENT_KEY_NOT_FOUND,
             SecurePayload::EVENT_NONCE_MISMATCH,
+            SecurePayload::EVENT_FILE_STORED,
+            SecurePayload::EVENT_FILE_ACCESSED,
+            SecurePayload::EVENT_FILE_ACCESS_DENIED,
+            SecurePayload::EVENT_FILE_DELETED,
+            SecurePayload::EVENT_FILE_WATERMARKED,
+            SecurePayload::EVENT_FILE_WATERMARK_FAILED,
+            SecurePayload::EVENT_PAYLOAD_SCHEMA_INVALID,
         ];
     }
 

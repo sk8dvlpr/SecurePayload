@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace SecurePayload\Server;
 
+use SecurePayload\Compression\PayloadCompressor;
 use SecurePayload\Exceptions\SecurePayloadException;
 use SecurePayload\Internal\SecurePayloadConfig;
 use SecurePayload\Protocol\Aead;
 use SecurePayload\Protocol\Canonical;
 use SecurePayload\Protocol\Digest;
 use SecurePayload\Protocol\Messages;
+use SecurePayload\Protocol\PayloadSchemaValidator;
 use SecurePayload\SecurePayload;
 
 /**
@@ -172,9 +174,12 @@ final class RequestVerifier
             $result['mode'] = $used;
 
             if ($this->config->getMode() === 'aead') {
-                // Selesai jika hanya AEAD
+                // Selesai jika hanya AEAD. Integritas sudah dijamin tag AEAD;
+                // dekompresi + validasi skema dieksekusi SETELAH titik ini.
+                $plain = $this->finalizeBody($plain, $H);
                 $result['bodyPlain'] = $plain;
                 $result['json'] = json_decode($plain, true);
+                $this->enforcePayloadSchema($result['json'], $cid, $kid);
                 return $result;
             }
 
@@ -183,7 +188,10 @@ final class RequestVerifier
 
             // Verifikasi Digest Tambahan untuk integritas plaintext
             $digestHdr = $H[self::upper(SecurePayload::HX_BODY_DIGEST)] ?? '';
-            $calc = 'sha256=' . Digest::bodyDigestB64($rawBodyForHmac);
+            // Hasil disimpan: byte yang sama diverifikasi ulang di blok HMAC
+            // (mode both) — reuse menghemat satu pass SHA-256 penuh per request.
+            $plainDigestB64 = Digest::bodyDigestB64($rawBodyForHmac);
+            $calc = 'sha256=' . $plainDigestB64;
             if ($digestHdr !== $calc) {
                 throw new SecurePayloadException('Integritas Body Digest gagal', SecurePayloadException::UNPROCESSABLE, ['expected' => $calc, 'got' => $digestHdr]);
             }
@@ -210,8 +218,10 @@ final class RequestVerifier
             // Gunakan plaintext hasil dekripsi (jika ada) atau raw body asli
             $bodyForHmac = isset($rawBodyForHmac) ? $rawBodyForHmac : $rawBody;
 
-            // 1. Verifikasi Hash Body
-            $calcDig = Digest::bodyDigestB64($bodyForHmac);
+            // 1. Verifikasi Hash Body — bila plaintext sudah di-digest di jalur
+            //    AEAD (mode both), hasilnya direuse; byte-identik karena variabel
+            //    $rawBodyForHmac tidak pernah berubah di antara keduanya.
+            $calcDig = isset($plainDigestB64) ? $plainDigestB64 : Digest::bodyDigestB64($bodyForHmac);
             if (!hash_equals($digHVal, $calcDig)) {
                 throw new SecurePayloadException('Integritas Body Digest HMAC gagal', SecurePayloadException::UNPROCESSABLE);
             }
@@ -270,12 +280,67 @@ final class RequestVerifier
             }
 
             $result['mode'] = ($this->config->getMode() === 'both' && isset($rawBodyForHmac)) ? 'BOTH' : 'HMAC';
-            $result['bodyPlain'] = $bodyForHmac;
-            $result['json'] = json_decode($bodyForHmac, true);
+            // Dekompresi + validasi skema SETELAH seluruh verifikasi integritas
+            // (digest + signature) lolos, TEPAT SEBELUM hasil dikembalikan.
+            $finalBody = $this->finalizeBody($bodyForHmac, $H);
+            $result['bodyPlain'] = $finalBody;
+            $result['json'] = json_decode($finalBody, true);
+            $this->enforcePayloadSchema($result['json'], $cid, $kid);
             return $result;
         }
 
         throw new SecurePayloadException('Tidak ditemukan header keamanan yang valid', SecurePayloadException::BAD_REQUEST);
+    }
+
+    /**
+     * Terapkan dekompresi payload bila header X-Payload-Encoding menyatakan encoding.
+     *
+     * WAJIB dipanggil hanya SETELAH seluruh verifikasi integritas (digest/HMAC/tag
+     * AEAD) atas byte body berhasil — byte yang didekompresi harus terikat bukti
+     * integritas lebih dahulu. Encoding tidak dikenal ditolak fail-closed (400,
+     * termasuk nilai dipalsukan attacker); dekompresi gagal/melebihi batas → 422.
+     *
+     * @param array<string,string> $H Map header yang sudah dinormalisasi uppercase.
+     */
+    private function finalizeBody(string $body, array $H): string
+    {
+        $enc = $H[self::upper(SecurePayload::HX_PAYLOAD_ENCODING)] ?? '';
+        if ($enc === '' || $enc === 'identity') {
+            return $body;
+        }
+        return PayloadCompressor::decompress($body, $enc);
+    }
+
+    /**
+     * Tegakkan opsi server `payloadSchema` atas JSON hasil decode.
+     *
+     * Hanya aktif bila schema diset — tanpa schema, perilaku existing (json apa
+     * adanya, termasuk null) dipertahankan penuh. Dengan schema: json === null
+     * (JSON rusak/literal null) ATAU hasil validate() gagal → event
+     * `payload_schema_invalid` + exception 422 (fail-closed).
+     *
+     * @param mixed $json Hasil json_decode(body, true).
+     */
+    private function enforcePayloadSchema($json, string $cid, string $kid): void
+    {
+        $schema = $this->config->getPayloadSchema();
+        if ($schema === null) {
+            return;
+        }
+        $error = $json === null
+            ? 'Payload bukan JSON yang valid'
+            : PayloadSchemaValidator::validate($json, $schema);
+        if ($error !== null) {
+            $this->config->emitEvent(SecurePayload::EVENT_PAYLOAD_SCHEMA_INVALID, [
+                'clientId' => $cid,
+                'keyId' => $kid,
+                'error' => $error,
+            ]);
+            throw new SecurePayloadException(
+                'Struktur payload tidak sesuai payloadSchema: ' . $error,
+                SecurePayloadException::UNPROCESSABLE
+            );
+        }
     }
 
     private static function upper(string $s): string

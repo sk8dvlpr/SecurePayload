@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SecurePayload\Client;
 
+use SecurePayload\Compression\PayloadCompressor;
 use SecurePayload\Exceptions\SecurePayloadException;
 use SecurePayload\Internal\SecurePayloadConfig;
 use SecurePayload\Protocol\Aead;
@@ -81,6 +82,8 @@ final class RequestBuilder
             if ($body === false) {
                 throw new SecurePayloadException('Gagal encode JSON payload', SecurePayloadException::BAD_REQUEST);
             }
+            // Kompresi opsional: body yang dienkripsi adalah byte terkompresi.
+            $body = $this->applyOptionalCompression($body, $headers);
             $this->config->ensureSodium();
 
             $aeadKeyRaw = $this->config->deriveSubkey($this->config->getAeadKeyRaw(), SecurePayload::KDF_PURPOSE_AEAD_REQ);
@@ -108,6 +111,9 @@ final class RequestBuilder
             if ($plain === false) {
                 throw new SecurePayloadException('Gagal encode JSON payload', SecurePayloadException::BAD_REQUEST);
             }
+            // Kompresi opsional: digest & HMAC dihitung ATAS byte
+            // terkompresi — byte inilah yang benar-benar dikirim & diverifikasi server.
+            $plain = $this->applyOptionalCompression($plain, $headers);
             $this->config->ensureSodium();
 
             $aeadKeyRaw = $this->config->deriveSubkey($this->config->getAeadKeyRaw(), SecurePayload::KDF_PURPOSE_AEAD_REQ);
@@ -123,8 +129,9 @@ final class RequestBuilder
             $ctB64 = base64_encode($ciphertext);
             $body = json_encode(['__aead_b64' => $ctB64], JSON_UNESCAPED_SLASHES);
 
-            // Tanda tangan dilakukan terhadap Plaintext asli, bukan ciphertext
-            // agar server memverifikasi makna data, bukan bungkusnya.
+            // Digest & HMAC dihitung atas plaintext pra-AEAD (byte terkompresi bila
+            // opsi compress aktif) — byte inilah yang dikirim dan diverifikasi server,
+            // bukan ciphertext.
             $digestB64 = Digest::bodyDigestB64($plain);
             $msg = Messages::hmacMessage($ver, (string) $this->config->getClientId(), (string) $this->config->getKeyId(), $ts, $nonceB64, $method, $path, $qStr, $digestB64);
             [$sigB64, $sigAlg] = $this->config->signCanonical($msg);
@@ -143,6 +150,8 @@ final class RequestBuilder
         if ($plain === false) {
             throw new SecurePayloadException('Gagal encode JSON payload', SecurePayloadException::BAD_REQUEST);
         }
+        // Kompresi opsional: digest & HMAC atas byte terkompresi.
+        $plain = $this->applyOptionalCompression($plain, $headers);
 
         $digestB64 = Digest::bodyDigestB64($plain);
         $msg = Messages::hmacMessage($ver, (string) $this->config->getClientId(), (string) $this->config->getKeyId(), $ts, $nonceB64, $method, $path, $qStr, $digestB64);
@@ -153,5 +162,25 @@ final class RequestBuilder
         $headers[SecurePayload::HX_SIGNATURE] = $sigB64;
 
         return [$headers, $plain];
+    }
+
+    /**
+     * Terapkan kompresi opsional atas body JSON (opsi client `compress`, D10).
+     *
+     * Bila fitur aktif, header X-Payload-Encoding SELALU diisi eksplisit
+     * ('gzip'/'br'/'identity') agar keputusan encoding terlihat di wire tanpa
+     * menebak. Bila fitur nonaktif, body dan header tidak disentuh sama sekali
+     * (wire identik dengan kondisi tanpa kompresi).
+     *
+     * @param array<string,string> $headers Map header yang sedang disusun (diubah by-reference).
+     */
+    private function applyOptionalCompression(string $body, array &$headers): string
+    {
+        if (!$this->config->getCompress()) {
+            return $body;
+        }
+        $res = PayloadCompressor::compress($body);
+        $headers[SecurePayload::HX_PAYLOAD_ENCODING] = $res['encoding'];
+        return $res['data'];
     }
 }

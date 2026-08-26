@@ -1,0 +1,99 @@
+# Contoh konfigurasi Envoy untuk SecurePayload ext_authz.
+#
+# Arsitektur demo:
+#   klien → Envoy :10000 → [ext_authz filter] → authz :9000 (service ini)
+#                         → [router]          → echo :8080 (upstream contoh)
+#
+# Poin fail-closed:
+#   - failure_mode_allow: false → saat authz tidak merespons / 5xx, request DITOLAK.
+#   - allow_partial_message: false → body yang terpotong tidak diverifikasi sebagian;
+#     request besar melebihi max_request_bytes ditolak (bukan lolos tanpa body).
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901
+
+static_resources:
+  listeners:
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 10000
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: local_service
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: echo_service
+                http_filters:
+                  # 1) Verifikasi SecurePayload sebelum request mencapai upstream.
+                  - name: envoy.filters.http.ext_authz
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+                      transport_api_version: V3
+                      failure_mode_allow: false # DENY saat authz down/error (fail-closed)
+                      status_on_error:
+                        code: ServiceUnavailable # balikan ke klien bila authz error
+                      http_service:
+                        server_uri:
+                          uri: http://authz:9000
+                          cluster: authz
+                          timeout: 1s # produksi: 100-250ms, lihat README (latency budget)
+                        # path_prefix TIDAK disetel agar authz menerima path asli
+                        # persis seperti yang ditandatangani klien.
+                        authorization_response:
+                          allowed_client_headers:
+                            patterns:
+                              - exact: ":status"
+                              - exact: "content-type"
+                              - exact: "content-length"
+                              - exact: "www-authenticate"
+                      with_request_body:
+                        max_request_bytes: 8192
+                        allow_partial_message: false
+                  # 2) Router wajib menjadi filter terakhir.
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    # Cluster service authorization ini (packages/envoy-authz).
+    - name: authz
+      connect_timeout: 0.25s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: authz
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: authz
+                      port_value: 9000
+    # Upstream contoh (echo server).
+    - name: echo_service
+      connect_timeout: 0.25s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: echo_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: echo
+                      port_value: 8080

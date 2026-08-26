@@ -75,6 +75,18 @@ final class SecurePayloadConfig
     private bool $deriveKeys;
 
     /**
+     * @var bool Opsi client: kompresi body JSON sebelum dikirim.
+     * Default false — wire protokol tidak berubah bila tidak diaktifkan.
+     */
+    private bool $compress;
+
+    /**
+     * @var array<string,mixed>|null Opsi server: skema subset JSON
+     * Schema yang ditegakkan atas json hasil verify(). Null = fitur nonaktif.
+     */
+    private ?array $payloadSchema;
+
+    /**
      * @var callable(string, array<string,mixed>): void|null Hook event keamanan.
      */
     private $onSecurityEvent;
@@ -116,6 +128,8 @@ final class SecurePayloadConfig
      *   clockSkew?: int,
      *   bindHeaders?: list<string>,
      *   deriveKeys?: bool,
+     *   compress?: bool,
+     *   payloadSchema?: array<string,mixed>,
      *   onSecurityEvent?: callable|null,
      *   clock?: callable|null,
      *   nonceGenerator?: callable|null,
@@ -169,6 +183,20 @@ final class SecurePayloadConfig
         }
 
         $this->deriveKeys = !empty($opts['deriveKeys']);
+
+        // Kompresi payload client — default OFF agar wire
+        // protokol v4 & conformance fixtures tetap identik bila tidak diaktifkan.
+        $this->compress = !empty($opts['compress']);
+
+        // Skema payload server. Harus array non-kosong bila diset.
+        $schema = $opts['payloadSchema'] ?? null;
+        if ($schema !== null && (!is_array($schema) || $schema === [])) {
+            throw new SecurePayloadException(
+                'payloadSchema harus berupa array non-kosong bila diset',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
+        $this->payloadSchema = $schema;
 
         $hook = $opts['onSecurityEvent'] ?? null;
         $this->onSecurityEvent = is_callable($hook) ? $hook : null;
@@ -373,6 +401,22 @@ final class SecurePayloadConfig
     public function getDeriveKeys(): bool
     {
         return $this->deriveKeys;
+    }
+
+    /** Apakah kompresi payload client diaktifkan. */
+    public function getCompress(): bool
+    {
+        return $this->compress;
+    }
+
+    /**
+     * Skema payload server, atau null bila fitur nonaktif.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function getPayloadSchema(): ?array
+    {
+        return $this->payloadSchema;
     }
 
     /** @return callable(): int */

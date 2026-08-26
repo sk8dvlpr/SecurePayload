@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace SecurePayload\Cli;
 
 use SecurePayload\Cli\Command\DebugVerifyCommand;
+use SecurePayload\Cli\Command\DoctorCommand;
 use SecurePayload\Cli\Command\GenerateKeysCommand;
 use SecurePayload\Cli\Command\RotateKeysCommand;
 use SecurePayload\Cli\Command\RoundtripCommand;
@@ -19,6 +20,7 @@ final class Application extends SymfonyApplication
             new RotateKeysCommand(),
             new DebugVerifyCommand(),
             new RoundtripCommand(),
+            new DoctorCommand(),
         ]);
     }
 }

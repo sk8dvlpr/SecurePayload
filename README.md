@@ -44,6 +44,11 @@ SecurePayload mengatasi ketiganya dengan menyisipkan sekumpulan header keamanan 
 - **Canonicalization simetris** — client & server menghasilkan representasi request yang identik, sehingga verifikasi tahan terhadap manipulasi urutan query atau format path.
 - **Anti signature-spoofing** — server **menurunkan** method/path/query dari input request-nya sendiri, bukan dari header `X-Canonical-Request` (header itu hanya petunjuk debug).
 - **Transfer file aman** — in-memory (`buildFilePayload`), streaming dua langkah (`buildFileStream` + unggah ciphertext), atau **satu request multipart** (`buildFileStreamMultipartRequest` / `verifyFileStreamMultipart`).
+- **Penyimpanan file terenkripsi (envelope)** — DEK per file (XChaCha20-Poly1305 secretstream) di-wrap KEK via KMS; adapter Local/S3/GCS. Lihat [docs/FILE_STORAGE.md](docs/FILE_STORAGE.md).
+- **Secure delivery** — tautan unduhan ber-token HMAC (`sp1`) dengan kedaluwarsa, sekali-pakai, dan binding pemegang. Lihat [docs/SECURE_DELIVERY.md](docs/SECURE_DELIVERY.md).
+- **Key lifecycle** — status kunci `active/retiring/revoked/destroyed`, schedule destroy (crypto-shredding), dan dekripsi arsip payload dengan kunci pencatatnya. Lihat [docs/KEY_LIFECYCLE.md](docs/KEY_LIFECYCLE.md).
+- **Idempotency** — store hasil eksekusi per header `X-Idempotency-Key`, terpisah dari anti-replay; in-memory atau PSR-16. Lihat [docs/IDEMPOTENCY.md](docs/IDEMPOTENCY.md).
+- **Kompresi & kontrak payload (opt-in)** — `compress => true` (gzip/brotli, anti decompression-bomb) dan `payloadSchema` (subset JSON Schema) di opsi konstruktor.
 - **Webhook helper** — `WebhookVerifier` membaca method/path/query dari `$_SERVER` (termasuk fallback header nginx/FPM).
 - **Observability** — hook `onSecurityEvent`, `PrometheusSecurityExporter`, dan `OpenTelemetrySecurityExporter` (tracer opsional).
 - **Interop RFC 9421** — `Rfc9421Bridge` memetakan header SecurePayload ↔ `Signature-Input` / `Signature` / `Content-Digest` (HMAC-SHA256).
@@ -512,6 +517,11 @@ Event yang diemit (lihat konstanta `SecurePayload::EVENT_*`):
 | `EVENT_SIGNATURE_INVALID`   | `signature_invalid`  | HMAC/Ed25519 tidak valid.                        |
 | `EVENT_KEY_NOT_FOUND`       | `key_not_found`      | Kunci server (HMAC/AEAD/public) tidak tersedia.  |
 | `EVENT_NONCE_MISMATCH`      | `nonce_mismatch`     | Nonce AEAD tidak sesuai konteks request.         |
+| `EVENT_FILE_STORED`         | `file_stored`        | File berhasil dienkripsi & disimpan (Storage).   |
+| `EVENT_FILE_ACCESSED`       | `file_accessed`      | Token tautan aman lolos verifikasi (Delivery).   |
+| `EVENT_FILE_ACCESS_DENIED`  | `file_access_denied` | Token unduhan ditolak (+ `reason`, `file_id`).   |
+| `EVENT_FILE_DELETED`        | `file_deleted`       | Blob ciphertext dihapus dari adapter.            |
+| `EVENT_PAYLOAD_SCHEMA_INVALID` | `payload_schema_invalid` | Body tidak sesuai opsi server `payloadSchema` (422). |
 
 > Context tiap event memuat `clientId`/`keyId` plus penanda ringan (`source`/`alg`/`kind`/`scope`). **Tidak pernah** memuat secret, plaintext, atau ciphertext.
 
@@ -598,6 +608,8 @@ Dokumentasi: [`docs/RFC9421_BRIDGE.md`](docs/RFC9421_BRIDGE.md). Contoh: [`examp
 | `clockSkew`     | int        | `60`     | Toleransi selisih jam (detik).                                         |
 | `bindHeaders`   | string[]   | `[]`     | Nama header kritikal yang diikat ke AAD AEAD; harus sama di client & server. |
 | `deriveKeys`    | bool       | `false`  | Master key → subkey HKDF per-fungsi; harus sama di client & server.   |
+| `compress`      | bool       | `false`  | Kompresi body sebelum dikirim (brotli bila tersedia, selain itu gzip); label encoding dikirim via header `X-Payload-Encoding`. |
+| `payloadSchema` | array      | —        | Subset JSON Schema (server) divalidasi atas JSON hasil `verify()`; pelanggaran → HTTP 422 + event `payload_schema_invalid`. |
 | `onSecurityEvent` | callable | —        | Hook observasional untuk SIEM/rate-limiter (context tanpa secret).   |
 | `httpTransport` | object\|callable | — | `HttpTransportInterface` atau factory untuk `send()`/`sendFile()`. |
 

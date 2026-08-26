@@ -1,0 +1,4 @@
+# Artifact build lokal — jangan di-commit
+server.exe
+authz
+authz.exe

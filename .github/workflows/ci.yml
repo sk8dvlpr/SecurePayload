@@ -112,3 +112,27 @@ jobs:
       - name: Run Go SDK tests
         working-directory: packages/go-sdk
         run: go test ./...
+
+  python-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: sodium, json
+          coverage: none
+      - name: Sync composer.lock
+        run: composer update --lock --no-install
+      - name: Install PHP dependencies (interop)
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python SDK (with dev deps)
+        run: pip install -e "packages/python-sdk[dev]"
+      - name: Run Python SDK tests
+        working-directory: packages/python-sdk
+        run: pytest -q

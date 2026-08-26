@@ -22,6 +22,19 @@ final class PrometheusSecurityExporterTest extends TestCase
         $this->assertStringContainsString('# TYPE securepayload_security_events_total counter', $out);
     }
 
+    public function testKnownEventsMirrorIncludesFileAndSchemaEvents(): void
+    {
+        $events = PrometheusSecurityExporter::knownEvents();
+        $this->assertContains(SecurePayload::EVENT_FILE_STORED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_ACCESSED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_ACCESS_DENIED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_DELETED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_WATERMARKED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_WATERMARK_FAILED, $events);
+        $this->assertContains(SecurePayload::EVENT_PAYLOAD_SCHEMA_INVALID, $events);
+        $this->assertCount(13, $events);
+    }
+
     public function testOptionalLabelsOnlyWhenEnabled(): void
     {
         $exporter = new PrometheusSecurityExporter();

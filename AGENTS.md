@@ -82,17 +82,17 @@ Note: GitNexus skills and general-purpose `.opencode/skills/` are local-only —
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SecurePayload** (2387 symbols, 6435 relationships, 197 execution flows). Use the GitNexus MCP tools when exposed — they are NOT guaranteed to be available in every environment; the CLI (`node .gitnexus/run.cjs`) always works. The index is local-only and can be stale (`meta.json` `indexedAt` vs HEAD) — re-run `node .gitnexus/run.cjs analyze` before heavy edits.
+This project is indexed by GitNexus as **SecurePayload** (3989 symbols, 10769 relationships, 296 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run MCP `impact({target: "symbolName", direction: "upstream"})` when exposed — otherwise fall back to the CLI (`node .gitnexus/run.cjs`, subcommands per the gitnexus-cli skill). Report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** (MCP when exposed, else CLI equivalent) to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use MCP `query({query: "concept"})` to find execution flows instead of grepping (CLI alternative: gitnexus-cli skill). It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use MCP `context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
 
 ## Never Do
 
@@ -120,7 +120,5 @@ This project is indexed by GitNexus as **SecurePayload** (2387 symbols, 6435 rel
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-Note: the 6 `.claude/skills/gitnexus/` skills are local-only (gitignored), not part of the repo.
 
 <!-- gitnexus:end -->

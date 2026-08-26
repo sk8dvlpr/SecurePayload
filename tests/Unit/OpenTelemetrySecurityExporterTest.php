@@ -146,6 +146,13 @@ final class OpenTelemetrySecurityExporterTest extends TestCase
     {
         $events = OpenTelemetrySecurityExporter::knownEvents();
         $this->assertContains(SecurePayload::EVENT_REPLAY_DETECTED, $events);
-        $this->assertCount(6, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_STORED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_ACCESSED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_ACCESS_DENIED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_DELETED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_WATERMARKED, $events);
+        $this->assertContains(SecurePayload::EVENT_FILE_WATERMARK_FAILED, $events);
+        $this->assertContains(SecurePayload::EVENT_PAYLOAD_SCHEMA_INVALID, $events);
+        $this->assertCount(13, $events);
     }
 }
