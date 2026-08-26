@@ -106,7 +106,9 @@ final class IdempotencyStoreTest extends TestCase
         $this->assertSame(['x' => 1], $store->get('sementara'));
 
         // Backdate expiresAt via refleksi agar uji kedaluwarsa deterministik tanpa sleep.
+        // setAccessible() wajib di PHP 8.0 (sejak 8.1 opsional) — kompatibilitas matrix CI.
         $prop = (new \ReflectionClass($store))->getProperty('items');
+        $prop->setAccessible(true);
         $items = $prop->getValue($store);
         $items['sementara']['expiresAt'] = time() - 1;
         $prop->setValue($store, $items);
