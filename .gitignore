@@ -68,4 +68,7 @@ Thumbs.db
 
 # --- Commit tooling temp (local) ---
 /.phase_snapshots/
-/*.diff/packages/*/dist/
+/*.diff
+
+/packages/*/dist/
+
