@@ -13,12 +13,28 @@
     <h1>Page not found</h1>
     <p>Halaman tidak ditemukan. Try one of these:</p>
     <ul>
-      <li><a href="en/index.html">Home (EN)</a> · <a href="id/index.html">Beranda (ID)</a></li>
-      <li><a href="en/quickstart.html">Quick Start</a> · <a href="id/quickstart.html">Mulai Cepat</a></li>
-      <li><a href="en/warnings.html">Warnings</a> · <a href="id/warnings.html">Peringatan</a></li>
-      <li><a href="en/features/index.html">Features</a></li>
-      <li><a href="en/troubleshooting.html">Troubleshooting</a></li>
+      <li><a href="en/index.html" data-root="en/index.html">Home (EN)</a> · <a href="id/index.html" data-root="id/index.html">Beranda (ID)</a></li>
+      <li><a href="en/quickstart.html" data-root="en/quickstart.html">Quick Start</a> · <a href="id/quickstart.html" data-root="id/quickstart.html">Mulai Cepat</a></li>
+      <li><a href="en/warnings.html" data-root="en/warnings.html">Warnings</a> · <a href="id/warnings.html" data-root="id/warnings.html">Peringatan</a></li>
+      <li><a href="en/features/index.html" data-root="en/features/index.html">Features</a></li>
+      <li><a href="en/troubleshooting.html" data-root="en/troubleshooting.html">Troubleshooting</a></li>
     </ul>
   </main>
+  <script>
+  (function () {
+    function root() {
+      var p = location.pathname;
+      var m = p.match(/^(.*)\/(?:id|en)(?:\/|$)/);
+      if (m) return (m[1] || '') + '/';
+      return p.replace(/\/[^/]*$/, '/') || './';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      var r = root();
+      document.querySelectorAll('a[data-root]').forEach(function (a) {
+        a.href = r + a.getAttribute('data-root');
+      });
+    });
+  })();
+  </script>
 </body>
 </html>

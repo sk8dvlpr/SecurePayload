@@ -1420,7 +1420,7 @@ def root_index() -> str:
 
 
 def page_404() -> str:
-    return f"""<!DOCTYPE html>
+    return r"""<!DOCTYPE html>
 <html lang="en" data-theme="auto">
 <head>
   <meta charset="utf-8" />
