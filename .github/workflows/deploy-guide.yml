@@ -1,8 +1,7 @@
-# Draft kept for reference. Active workflow:
-#   .github/workflows/deploy-guide.yml
-# Pin actions to commit SHAs when hardening supply-chain.
+# Deploy SecurePayload User Guide to GitHub Pages.
+# Settings → Pages → Source = GitHub Actions (not "Deploy from a branch").
 
-name: Deploy User Guide (draft)
+name: Deploy User Guide
 
 on:
   workflow_dispatch:
@@ -10,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "guide/**"
+      - ".github/workflows/deploy-guide.yml"
 
 permissions:
   contents: read
@@ -26,13 +26,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        # TODO: pin to commit SHA
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-        # TODO: pin to commit SHA
 
       - name: Build guide
         run: python guide/tools/generate.py
@@ -41,7 +42,6 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: guide/dist
-        # TODO: pin to commit SHA
 
   deploy:
     needs: build
@@ -53,4 +53,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        # TODO: pin to commit SHA
