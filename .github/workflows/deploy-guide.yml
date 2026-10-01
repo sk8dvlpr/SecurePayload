@@ -1,5 +1,6 @@
 # Deploy SecurePayload User Guide to GitHub Pages.
 # Settings → Pages → Source = GitHub Actions (not "Deploy from a branch").
+# Publishes committed guide/dist (generator runs locally / via npm run build).
 
 name: Deploy User Guide
 
@@ -27,16 +28,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Build guide
+      - name: Verify guide dist
         run: |
           set -euo pipefail
-          python --version
-          python -u guide/tools/generate.py
+          test -f guide/dist/index.html
+          test -f guide/dist/.nojekyll
+          test -d guide/dist/id
+          test -d guide/dist/en
+          echo "guide/dist OK ($(find guide/dist -type f | wc -l) files)"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
