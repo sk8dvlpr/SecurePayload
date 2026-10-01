@@ -1,0 +1,70 @@
+{
+  "signature": {
+    "id": "Segel pada amplop; jika isi berubah, segelnya rusak.",
+    "en": "A seal on an envelope; if the contents change, the seal breaks."
+  },
+  "encryption": {
+    "id": "Mengunci isi agar hanya penerima yang bisa membuka.",
+    "en": "Locking the contents so only the receiver can open them."
+  },
+  "nonce": {
+    "id": "Kode unik sekali pakai pada tiap pesan.",
+    "en": "A one-time code attached to every message."
+  },
+  "timestamp": {
+    "id": "Cap waktu pengiriman; pesan lama ditolak.",
+    "en": "The send time; old messages are rejected."
+  },
+  "replay": {
+    "id": "Orang menyalin pesan sah lalu mengirimnya lagi.",
+    "en": "Someone copies a valid message and sends it again."
+  },
+  "replay-store": {
+    "id": "Buku catatan tiket (nonce) yang sudah dipakai.",
+    "en": "A logbook of tickets (nonces) already used."
+  },
+  "clock-skew": {
+    "id": "Toleransi jika jam dua server tidak persis sama.",
+    "en": "Allowed difference between two servers' clocks."
+  },
+  "key-id": {
+    "id": "Rahasia yang dipakai; nomor versi kuncinya.",
+    "en": "The secret in use; and its version number."
+  },
+  "kms": {
+    "id": "Brankas untuk menyimpan & membungkus kunci.",
+    "en": "A vault that stores and wraps keys."
+  },
+  "key-wrapping": {
+    "id": "Menyimpan kunci di dalam kotak terkunci lain.",
+    "en": "Keeping a key inside another locked box."
+  },
+  "ed25519": {
+    "id": "Pengirim punya kunci pribadi; penerima hanya kunci publik.",
+    "en": "Sender holds a private key; receiver only holds a public key."
+  },
+  "post-quantum": {
+    "id": "Persiapan menghadapi komputer kuantum di masa depan.",
+    "en": "Preparation for future quantum computers."
+  },
+  "middleware": {
+    "id": "Lapisan yang memeriksa request sebelum sampai ke aplikasi.",
+    "en": "A layer that checks a request before it reaches your app."
+  },
+  "webhook": {
+    "id": "Pesan otomatis dari sistem lain ke server Anda.",
+    "en": "An automatic message another system sends to your server."
+  },
+  "load-balancer": {
+    "id": "Pembagi lalu lintas ke beberapa server.",
+    "en": "A traffic splitter across several servers."
+  },
+  "protocol-version": {
+    "id": "“Bahasa” wire yang harus sama di kedua sisi (default 4).",
+    "en": "The wire “language” both sides must share (default 4)."
+  },
+  "canonical-request": {
+    "id": "Bentuk baku method/path/query agar tanda tangan cocok.",
+    "en": "A normalized method/path/query so signatures match."
+  }
+}

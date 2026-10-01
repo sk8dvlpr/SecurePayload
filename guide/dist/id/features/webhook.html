@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Webhook · SecurePayload</title>
+  <meta name="description" content="Panduan Webhook pada SecurePayload v3.2.0." />
+  <meta name="sp-asset-base" content="../../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/id/features/webhook.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/features/webhook.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/features/webhook.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/features/webhook.html" />
+  <meta property="og:title" content="Webhook · SecurePayload" />
+  <meta property="og:description" content="Panduan Webhook pada SecurePayload v3.2.0." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/id/features/webhook.html" />
+  <link rel="icon" href="../../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../../assets/css/site.css" />
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke konten</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="../index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Cari</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../../id/features/webhook.html" aria-current='true'>ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../../en/features/webhook.html" >EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Terang</button>
+        <button type="button" data-theme-set="dark">Gelap</button>
+        <button type="button" data-theme-set="auto">Otomatis</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Beranda</div><ul>
+<li><a href="../index.html">Beranda</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Konsep</div><ul>
+<li><a href="../basics.html">Konsep Dasar</a></li>
+<li><a href="../choose-setup.html">Pilih Mode</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Mulai</div><ul>
+<li><a href="../installation.html">Instalasi</a></li>
+<li><a href="../quickstart.html">Mulai Cepat</a></li>
+<li><a href="../keys.html">Mengelola Kunci</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Fitur</div><ul>
+<li><a href="../features/index.html">Fitur &amp; Manfaat</a></li>
+<li><a href="../features/anti-replay.html">Anti-replay</a></li>
+<li><a href="../features/response.html">Response Dua Arah</a></li>
+<li><a href="../features/file-small.html">File Kecil</a></li>
+<li><a href="../features/file-stream.html">File Streaming</a></li>
+<li><a href="../features/file-multipart.html">File Multipart</a></li>
+<li><a href="../features/webhook.html" aria-current="page">Webhook</a></li>
+<li><a href="../features/ed25519.html">Ed25519</a></li>
+<li><a href="../features/hybrid-pq.html">Hybrid Pasca-kuantum</a></li>
+<li><a href="../features/derive-keys.html">deriveKeys</a></li>
+<li><a href="../features/bind-headers.html">bindHeaders</a></li>
+<li><a href="../features/observability.html">Observability</a></li>
+<li><a href="../features/rfc9421.html">RFC 9421</a></li>
+<li><a href="../features/sdk-node-go.html">SDK Node &amp; Go</a></li>
+<li><a href="../features/cli.html">CLI</a></li>
+<li><a href="../features/mtls.html">mTLS</a></li>
+<li><a href="../features/kms.html">KMS</a></li>
+<li><a href="../features/file-storage-delivery.html">Penyimpanan File</a></li>
+<li><a href="../features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Operasi</div><ul>
+<li><a href="../warnings.html">Peringatan</a></li>
+<li><a href="../troubleshooting.html">Pemecahan Masalah</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Framework</div><ul>
+<li><a href="../frameworks/native.html">Native PHP</a></li>
+<li><a href="../frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="../frameworks/laravel.html">Laravel</a></li>
+<li><a href="../frameworks/lumen.html">Lumen</a></li>
+<li><a href="../frameworks/slim.html">Slim</a></li>
+<li><a href="../frameworks/symfony.html">Symfony</a></li>
+<li><a href="../frameworks/node.html">Node.js</a></li>
+<li><a href="../frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Referensi</div><ul>
+<li><a href="../reference/options.html">Opsi Konstruktor</a></li>
+<li><a href="../reference/headers.html">Header Keamanan</a></li>
+<li><a href="../reference/events.html">Event Keamanan</a></li>
+<li><a href="../reference/exceptions.html">Exception</a></li>
+<li><a href="../reference/methods.html">Method Publik</a></li>
+<li><a href="../reference/env.html">Variabel Env</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Lainnya</div><ul>
+<li><a href="../glossary.html">Kamus Istilah</a></li>
+<li><a href="../versions.html">Versi &amp; Upgrade</a></li>
+<li><a href="../security.html">Keamanan &amp; Pelaporan</a></li>
+<li><a href="../contributing.html">Kontribusi &amp; Lisensi</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        
+<p><strong>Apa ini?</strong> Verifikasi webhook masuk dengan aturan yang sama.</p>
+<h2 id="kapan">Kapan dipakai</h2>
+<p>WebhookVerifier di src/Webhook.</p>
+<h2 id="cara">Cara kerja (analogi)</h2>
+<p>Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini.</p>
+<h2 id="api">API terkait</h2>
+<p><code>WebhookVerifier</code></p>
+<aside class="callout warn" role="note"><span class="icon" aria-hidden="true">!</span><div><div class="label">Peringatan</div><p>Lihat juga <a href="../warnings.html">Peringatan</a>. Defaults: replayTtl=120, clockSkew=60.</p></div></aside>
+<details class="acc"><summary>Detail teknis</summary><div class="acc-body"><p>Protocol default 4. Library v3.2.0. signAlg ditentukan server.</p></div></details>
+<p><a href="index.html">← Hub fitur</a></p>
+
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="../features/file-multipart.html">Sebelumnya: File Multipart</a>
+        <a href="../features/ed25519.html">Berikutnya: Ed25519</a>
+      </nav>
+      <p class="footer-note">Apakah halaman ini membantu?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: id/webhook">Laporkan masalah</a></p>
+    </main>
+    <aside class="site-toc" aria-label="Di halaman ini">
+      <div class="site-toc__title">Di halaman ini</div>
+      <nav><a href="#kapan">Kapan dipakai</a><a href="#cara">Cara kerja (analogi)</a><a href="#api">API terkait</a></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Cari">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Cari…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>Tidak ada hasil</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>

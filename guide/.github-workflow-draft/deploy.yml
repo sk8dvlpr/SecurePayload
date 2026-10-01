@@ -1,0 +1,56 @@
+# Draft GitHub Pages deploy for SecurePayload User Guide
+# NOT enabled in .github/workflows — copy/adapt when ready.
+# Pin actions to commit SHAs before enabling (supply-chain hygiene).
+
+name: Deploy User Guide
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "guide/**"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-guide
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        # TODO: pin to commit SHA
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+        # TODO: pin to commit SHA
+
+      - name: Build guide
+        run: python guide/tools/generate.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: guide/dist
+        # TODO: pin to commit SHA
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        # TODO: pin to commit SHA

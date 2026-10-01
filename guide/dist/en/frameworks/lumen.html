@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lumen · SecurePayload</title>
+  <meta name="description" content="Guide to Lumen in SecurePayload v3.2.0." />
+  <meta name="sp-asset-base" content="../../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/en/frameworks/lumen.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/frameworks/lumen.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/frameworks/lumen.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/frameworks/lumen.html" />
+  <meta property="og:title" content="Lumen · SecurePayload" />
+  <meta property="og:description" content="Guide to Lumen in SecurePayload v3.2.0." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/en/frameworks/lumen.html" />
+  <link rel="icon" href="../../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../../assets/css/site.css" />
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="../index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Search</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../../id/frameworks/lumen.html" >ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../../en/frameworks/lumen.html" aria-current='true'>EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Light</button>
+        <button type="button" data-theme-set="dark">Dark</button>
+        <button type="button" data-theme-set="auto">Auto</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Home</div><ul>
+<li><a href="../index.html">Home</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Concepts</div><ul>
+<li><a href="../basics.html">The Basics</a></li>
+<li><a href="../choose-setup.html">Choose Your Setup</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Start</div><ul>
+<li><a href="../installation.html">Installation</a></li>
+<li><a href="../quickstart.html">Quick Start</a></li>
+<li><a href="../keys.html">Managing Keys</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Features</div><ul>
+<li><a href="../features/index.html">Features &amp; Benefits</a></li>
+<li><a href="../features/anti-replay.html">Anti-replay</a></li>
+<li><a href="../features/response.html">Two-way Response</a></li>
+<li><a href="../features/file-small.html">Small Files</a></li>
+<li><a href="../features/file-stream.html">File Streaming</a></li>
+<li><a href="../features/file-multipart.html">Multipart Files</a></li>
+<li><a href="../features/webhook.html">Webhooks</a></li>
+<li><a href="../features/ed25519.html">Ed25519</a></li>
+<li><a href="../features/hybrid-pq.html">Hybrid Post-quantum</a></li>
+<li><a href="../features/derive-keys.html">deriveKeys</a></li>
+<li><a href="../features/bind-headers.html">bindHeaders</a></li>
+<li><a href="../features/observability.html">Observability</a></li>
+<li><a href="../features/rfc9421.html">RFC 9421</a></li>
+<li><a href="../features/sdk-node-go.html">Node &amp; Go SDKs</a></li>
+<li><a href="../features/cli.html">CLI</a></li>
+<li><a href="../features/mtls.html">mTLS</a></li>
+<li><a href="../features/kms.html">KMS</a></li>
+<li><a href="../features/file-storage-delivery.html">File Storage &amp; Delivery</a></li>
+<li><a href="../features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Ops</div><ul>
+<li><a href="../warnings.html">Warnings</a></li>
+<li><a href="../troubleshooting.html">Troubleshooting</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Frameworks</div><ul>
+<li><a href="../frameworks/native.html">Native PHP</a></li>
+<li><a href="../frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="../frameworks/laravel.html">Laravel</a></li>
+<li><a href="../frameworks/lumen.html" aria-current="page">Lumen</a></li>
+<li><a href="../frameworks/slim.html">Slim</a></li>
+<li><a href="../frameworks/symfony.html">Symfony</a></li>
+<li><a href="../frameworks/node.html">Node.js</a></li>
+<li><a href="../frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Reference</div><ul>
+<li><a href="../reference/options.html">Constructor Options</a></li>
+<li><a href="../reference/headers.html">Security Headers</a></li>
+<li><a href="../reference/events.html">Security Events</a></li>
+<li><a href="../reference/exceptions.html">Exceptions</a></li>
+<li><a href="../reference/methods.html">Public Methods</a></li>
+<li><a href="../reference/env.html">Environment Variables</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">More</div><ul>
+<li><a href="../glossary.html">Glossary</a></li>
+<li><a href="../versions.html">Versions &amp; Upgrading</a></li>
+<li><a href="../security.html">Security &amp; Reporting</a></li>
+<li><a href="../contributing.html">Contributing &amp; License</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        
+<p>Laravel-like patterns for Lumen.</p>
+<aside class="callout warn" role="note"><span class="icon" aria-hidden="true">!</span><div><div class="label">Raw body</div><p>Read the raw body before the framework parses JSON if the signature covers the body.</p></div></aside>
+<div class="code"><span class="lang">php</span><button type="button" data-copy aria-label="Copy">Copy</button><pre><code>// TEST only — see examples/ and packages/\n// Pass server method/path/query into verify()</code></pre></div>
+<p><a href="../warnings.html">Production warnings →</a></p>
+
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="../frameworks/laravel.html">Previous: Laravel</a>
+        <a href="../frameworks/slim.html">Next: Slim</a>
+      </nav>
+      <p class="footer-note">Was this page helpful?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: en/lumen">Report an issue</a></p>
+    </main>
+    <aside class="site-toc" aria-label="On this page">
+      <div class="site-toc__title">On this page</div>
+      <nav><span>No sections</span></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Search">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Search…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>No results</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>

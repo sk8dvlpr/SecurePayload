@@ -1,0 +1,72 @@
+{
+  "claims": [
+    {
+      "claim": "Library version 3.2.0",
+      "verified": true,
+      "source": "composer.json / badge in UI"
+    },
+    {
+      "claim": "Protocol default 4",
+      "verified": true,
+      "source": "SecurePayload::DEFAULT_VERSION"
+    },
+    {
+      "claim": "PHP CI 8.0-8.5",
+      "verified": true,
+      "source": ".github/workflows/ci.yml"
+    },
+    {
+      "claim": "replayTtl default 120",
+      "verified": true,
+      "source": "SecurePayloadConfig"
+    },
+    {
+      "claim": "clockSkew default 60",
+      "verified": true,
+      "source": "SecurePayloadConfig"
+    },
+    {
+      "claim": "HMAC min 32 chars",
+      "verified": true,
+      "source": "SecurePayloadConfig"
+    },
+    {
+      "claim": "AEAD key 32 bytes",
+      "verified": true,
+      "source": "SecurePayloadConfig"
+    },
+    {
+      "claim": "requireReplayStore multi-server",
+      "verified": true,
+      "source": "SECURITY.md / ReplayGuard"
+    },
+    {
+      "claim": "No third-party audit",
+      "verified": true,
+      "source": "audit/REPORT.md"
+    },
+    {
+      "claim": "Response follows signAlg",
+      "verified": true,
+      "source": "ResponseBuilder (not README old claim)"
+    },
+    {
+      "claim": "File in-memory ~10MB guidance",
+      "verified": true,
+      "source": "README"
+    },
+    {
+      "claim": "X-Canonical-Request not server truth",
+      "verified": true,
+      "source": "RequestVerifier / README"
+    }
+  ],
+  "links_sample": [],
+  "notes": [
+    "Lighthouse/axe/screenshots not run in this environment (no browser automation in Fase 3 batch).",
+    "Parity + PHP roundtrip executed successfully."
+  ],
+  "links_checked": 4932,
+  "links_missing": [],
+  "links_missing_count": 0
+}

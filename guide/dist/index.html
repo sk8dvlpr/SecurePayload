@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SecurePayload User Guide</title>
+  <meta name="description" content="SecurePayload bilingual user guide (ID / EN)." />
+  <meta name="sp-asset-base" content="assets/" />
+  <link rel="icon" href="assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/site.css" />
+  <script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('sp-guide-lang');
+      var nav = (navigator.language || 'en').toLowerCase();
+      var lang = saved || (nav.indexOf('id') === 0 ? 'id' : 'en');
+      if (lang !== 'id' && lang !== 'en') lang = 'en';
+      location.replace('./' + lang + '/index.html');
+    } catch (e) {
+      /* show manual links below */
+    }
+  })();
+  </script>
+</head>
+<body>
+  <main class="shell prose" style="padding:48px 24px;max-width:40rem;margin:0 auto">
+    <h1>SecurePayload User Guide</h1>
+    <p>Choose a language / Pilih bahasa:</p>
+    <p class="btn-row">
+      <a class="btn btn-primary" href="id/index.html">Indonesia (ID)</a>
+      <a class="btn btn-secondary" href="en/index.html">English (EN)</a>
+    </p>
+  </main>
+</body>
+</html>

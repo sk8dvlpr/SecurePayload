@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mulai Cepat · SecurePayload</title>
+  <meta name="description" content="Lima langkah agar request both-mode berhasil dalam sekitar 10 menit." />
+  <meta name="sp-asset-base" content="../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/id/quickstart.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/quickstart.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/quickstart.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/quickstart.html" />
+  <meta property="og:title" content="Mulai Cepat · SecurePayload" />
+  <meta property="og:description" content="Lima langkah agar request both-mode berhasil dalam sekitar 10 menit." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/id/quickstart.html" />
+  <link rel="icon" href="../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke konten</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Cari</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../id/quickstart.html" aria-current='true'>ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../en/quickstart.html" >EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Terang</button>
+        <button type="button" data-theme-set="dark">Gelap</button>
+        <button type="button" data-theme-set="auto">Otomatis</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Beranda</div><ul>
+<li><a href="index.html">Beranda</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Konsep</div><ul>
+<li><a href="basics.html">Konsep Dasar</a></li>
+<li><a href="choose-setup.html">Pilih Mode</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Mulai</div><ul>
+<li><a href="installation.html">Instalasi</a></li>
+<li><a href="quickstart.html" aria-current="page">Mulai Cepat</a></li>
+<li><a href="keys.html">Mengelola Kunci</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Fitur</div><ul>
+<li><a href="features/index.html">Fitur &amp; Manfaat</a></li>
+<li><a href="features/anti-replay.html">Anti-replay</a></li>
+<li><a href="features/response.html">Response Dua Arah</a></li>
+<li><a href="features/file-small.html">File Kecil</a></li>
+<li><a href="features/file-stream.html">File Streaming</a></li>
+<li><a href="features/file-multipart.html">File Multipart</a></li>
+<li><a href="features/webhook.html">Webhook</a></li>
+<li><a href="features/ed25519.html">Ed25519</a></li>
+<li><a href="features/hybrid-pq.html">Hybrid Pasca-kuantum</a></li>
+<li><a href="features/derive-keys.html">deriveKeys</a></li>
+<li><a href="features/bind-headers.html">bindHeaders</a></li>
+<li><a href="features/observability.html">Observability</a></li>
+<li><a href="features/rfc9421.html">RFC 9421</a></li>
+<li><a href="features/sdk-node-go.html">SDK Node &amp; Go</a></li>
+<li><a href="features/cli.html">CLI</a></li>
+<li><a href="features/mtls.html">mTLS</a></li>
+<li><a href="features/kms.html">KMS</a></li>
+<li><a href="features/file-storage-delivery.html">Penyimpanan File</a></li>
+<li><a href="features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Operasi</div><ul>
+<li><a href="warnings.html">Peringatan</a></li>
+<li><a href="troubleshooting.html">Pemecahan Masalah</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Framework</div><ul>
+<li><a href="frameworks/native.html">Native PHP</a></li>
+<li><a href="frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="frameworks/laravel.html">Laravel</a></li>
+<li><a href="frameworks/lumen.html">Lumen</a></li>
+<li><a href="frameworks/slim.html">Slim</a></li>
+<li><a href="frameworks/symfony.html">Symfony</a></li>
+<li><a href="frameworks/node.html">Node.js</a></li>
+<li><a href="frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Referensi</div><ul>
+<li><a href="reference/options.html">Opsi Konstruktor</a></li>
+<li><a href="reference/headers.html">Header Keamanan</a></li>
+<li><a href="reference/events.html">Event Keamanan</a></li>
+<li><a href="reference/exceptions.html">Exception</a></li>
+<li><a href="reference/methods.html">Method Publik</a></li>
+<li><a href="reference/env.html">Variabel Env</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Lainnya</div><ul>
+<li><a href="glossary.html">Kamus Istilah</a></li>
+<li><a href="versions.html">Versi &amp; Upgrade</a></li>
+<li><a href="security.html">Keamanan &amp; Pelaporan</a></li>
+<li><a href="contributing.html">Kontribusi &amp; Lisensi</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        
+<p>Target: request <code>both</code> berhasil dalam ≤ 10 menit. Kunci di bawah hanya untuk uji.</p>
+<ol class="stepper">
+  <li data-n="1"><strong>Buat kunci uji</strong><span>HMAC ≥ 32 karakter; AEAD tepat 32 byte (base64).</span></li>
+  <li data-n="2"><strong>Sisi pengirim</strong><span>buildHeadersAndBody.</span></li>
+  <li data-n="3"><strong>Sisi penerima</strong><span>verify dengan method/path/query server.</span></li>
+  <li data-n="4"><strong>Kirim request</strong><span>Header X-* + body.</span></li>
+  <li data-n="5"><strong>Uji rusak</strong><span>Ubah body → harus ditolak.</span></li>
+</ol>
+<h2 id="klien">Contoh klien</h2>
+<div class="code"><span class="lang">php</span><button type="button" data-copy aria-label="Salin">Salin</button><pre><code>&lt;?php
+use SecurePayload\SecurePayload;
+
+// TEST keys only — never use in production
+$hmac = str_repeat(&#x27;a&#x27;, 32);
+$aead = base64_encode(random_bytes(32));
+
+$sp = new SecurePayload([
+  &#x27;mode&#x27; =&gt; &#x27;both&#x27;,
+  &#x27;clientId&#x27; =&gt; &#x27;demo&#x27;,
+  &#x27;keyId&#x27; =&gt; &#x27;v1&#x27;,
+  &#x27;hmacSecretRaw&#x27; =&gt; $hmac,
+  &#x27;aeadKeyB64&#x27; =&gt; $aead,
+]);
+
+[$headers, $body] = $sp-&gt;buildHeadersAndBody(
+  &#x27;https://example.test/api/orders&#x27;, &#x27;POST&#x27;,
+  [&#x27;orderId&#x27; =&gt; 1]
+);
+</code></pre></div>
+<h2 id="server">Contoh server</h2>
+<div class="code"><span class="lang">php</span><button type="button" data-copy aria-label="Salin">Salin</button><pre><code>&lt;?php
+$sp = new SecurePayload([
+  &#x27;mode&#x27; =&gt; &#x27;both&#x27;,
+  &#x27;keyLoader&#x27; =&gt; function ($cid, $kid) use ($hmac, $aead) {
+    return [&#x27;hmacSecret&#x27; =&gt; $hmac, &#x27;aeadKeyB64&#x27; =&gt; $aead];
+  },
+  // multi-server: inject replayStore + requireReplayStore
+]);
+
+$result = $sp-&gt;verify($headers, $body, &#x27;POST&#x27;, &#x27;/api/orders&#x27;, &#x27;&#x27;);
+// $result[&#x27;ok&#x27;] === true on success
+</code></pre></div>
+<aside class="callout danger" role="note"><span class="icon" aria-hidden="true">‼</span><div><div class="label">Jangan</div><p>Jangan ambil method/path/query dari <code>X-Canonical-Request</code>.</p></div></aside>
+<aside class="callout warn" role="note"><span class="icon" aria-hidden="true">!</span><div><div class="label">Multi-server</div><p>Cache file bawaan tidak dibagi. Pakai <code>replayStore</code> + <code>requireReplayStore</code>.</p></div></aside>
+<p><a href="keys.html">Selanjutnya: Mengelola Kunci →</a></p>
+
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="installation.html">Sebelumnya: Instalasi</a>
+        <a href="keys.html">Berikutnya: Mengelola Kunci</a>
+      </nav>
+      <p class="footer-note">Apakah halaman ini membantu?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: id/quickstart">Laporkan masalah</a></p>
+    </main>
+    <aside class="site-toc" aria-label="Di halaman ini">
+      <div class="site-toc__title">Di halaman ini</div>
+      <nav><a href="#klien">Contoh klien</a><a href="#server">Contoh server</a></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Cari">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Cari…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>Tidak ada hasil</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>

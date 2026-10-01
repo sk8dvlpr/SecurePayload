@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Native PHP · SecurePayload</title>
+  <meta name="description" content="Panduan Native PHP pada SecurePayload v3.2.0." />
+  <meta name="sp-asset-base" content="../../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/id/frameworks/native.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/frameworks/native.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/frameworks/native.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/frameworks/native.html" />
+  <meta property="og:title" content="Native PHP · SecurePayload" />
+  <meta property="og:description" content="Panduan Native PHP pada SecurePayload v3.2.0." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/id/frameworks/native.html" />
+  <link rel="icon" href="../../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../../assets/css/site.css" />
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke konten</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="../index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Cari</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../../id/frameworks/native.html" aria-current='true'>ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../../en/frameworks/native.html" >EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Terang</button>
+        <button type="button" data-theme-set="dark">Gelap</button>
+        <button type="button" data-theme-set="auto">Otomatis</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Beranda</div><ul>
+<li><a href="../index.html">Beranda</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Konsep</div><ul>
+<li><a href="../basics.html">Konsep Dasar</a></li>
+<li><a href="../choose-setup.html">Pilih Mode</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Mulai</div><ul>
+<li><a href="../installation.html">Instalasi</a></li>
+<li><a href="../quickstart.html">Mulai Cepat</a></li>
+<li><a href="../keys.html">Mengelola Kunci</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Fitur</div><ul>
+<li><a href="../features/index.html">Fitur &amp; Manfaat</a></li>
+<li><a href="../features/anti-replay.html">Anti-replay</a></li>
+<li><a href="../features/response.html">Response Dua Arah</a></li>
+<li><a href="../features/file-small.html">File Kecil</a></li>
+<li><a href="../features/file-stream.html">File Streaming</a></li>
+<li><a href="../features/file-multipart.html">File Multipart</a></li>
+<li><a href="../features/webhook.html">Webhook</a></li>
+<li><a href="../features/ed25519.html">Ed25519</a></li>
+<li><a href="../features/hybrid-pq.html">Hybrid Pasca-kuantum</a></li>
+<li><a href="../features/derive-keys.html">deriveKeys</a></li>
+<li><a href="../features/bind-headers.html">bindHeaders</a></li>
+<li><a href="../features/observability.html">Observability</a></li>
+<li><a href="../features/rfc9421.html">RFC 9421</a></li>
+<li><a href="../features/sdk-node-go.html">SDK Node &amp; Go</a></li>
+<li><a href="../features/cli.html">CLI</a></li>
+<li><a href="../features/mtls.html">mTLS</a></li>
+<li><a href="../features/kms.html">KMS</a></li>
+<li><a href="../features/file-storage-delivery.html">Penyimpanan File</a></li>
+<li><a href="../features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Operasi</div><ul>
+<li><a href="../warnings.html">Peringatan</a></li>
+<li><a href="../troubleshooting.html">Pemecahan Masalah</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Framework</div><ul>
+<li><a href="../frameworks/native.html" aria-current="page">Native PHP</a></li>
+<li><a href="../frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="../frameworks/laravel.html">Laravel</a></li>
+<li><a href="../frameworks/lumen.html">Lumen</a></li>
+<li><a href="../frameworks/slim.html">Slim</a></li>
+<li><a href="../frameworks/symfony.html">Symfony</a></li>
+<li><a href="../frameworks/node.html">Node.js</a></li>
+<li><a href="../frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Referensi</div><ul>
+<li><a href="../reference/options.html">Opsi Konstruktor</a></li>
+<li><a href="../reference/headers.html">Header Keamanan</a></li>
+<li><a href="../reference/events.html">Event Keamanan</a></li>
+<li><a href="../reference/exceptions.html">Exception</a></li>
+<li><a href="../reference/methods.html">Method Publik</a></li>
+<li><a href="../reference/env.html">Variabel Env</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Lainnya</div><ul>
+<li><a href="../glossary.html">Kamus Istilah</a></li>
+<li><a href="../versions.html">Versi &amp; Upgrade</a></li>
+<li><a href="../security.html">Keamanan &amp; Pelaporan</a></li>
+<li><a href="../contributing.html">Kontribusi &amp; Lisensi</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        
+<p>Contoh Native PHP tanpa framework.</p>
+<aside class="callout warn" role="note"><span class="icon" aria-hidden="true">!</span><div><div class="label">Raw body</div><p>Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body.</p></div></aside>
+<div class="code"><span class="lang">php</span><button type="button" data-copy aria-label="Salin">Salin</button><pre><code>// TEST only — see examples/ and packages/\n// Pass server method/path/query into verify()</code></pre></div>
+<p><a href="../warnings.html">Peringatan produksi →</a></p>
+
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="../troubleshooting.html">Sebelumnya: Pemecahan Masalah</a>
+        <a href="../frameworks/ci4.html">Berikutnya: CodeIgniter 4</a>
+      </nav>
+      <p class="footer-note">Apakah halaman ini membantu?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: id/native">Laporkan masalah</a></p>
+    </main>
+    <aside class="site-toc" aria-label="Di halaman ini">
+      <div class="site-toc__title">Di halaman ini</div>
+      <nav><span>Tidak ada bagian</span></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Cari">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Cari…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>Tidak ada hasil</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>

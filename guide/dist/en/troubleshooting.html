@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Troubleshooting · SecurePayload</title>
+  <meta name="description" content="Failed verification symptoms, HTTP codes, and common FAQ." />
+  <meta name="sp-asset-base" content="../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/en/troubleshooting.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/troubleshooting.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/troubleshooting.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/troubleshooting.html" />
+  <meta property="og:title" content="Troubleshooting · SecurePayload" />
+  <meta property="og:description" content="Failed verification symptoms, HTTP codes, and common FAQ." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/en/troubleshooting.html" />
+  <link rel="icon" href="../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Search</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../id/troubleshooting.html" >ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../en/troubleshooting.html" aria-current='true'>EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Light</button>
+        <button type="button" data-theme-set="dark">Dark</button>
+        <button type="button" data-theme-set="auto">Auto</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Home</div><ul>
+<li><a href="index.html">Home</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Concepts</div><ul>
+<li><a href="basics.html">The Basics</a></li>
+<li><a href="choose-setup.html">Choose Your Setup</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Start</div><ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="quickstart.html">Quick Start</a></li>
+<li><a href="keys.html">Managing Keys</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Features</div><ul>
+<li><a href="features/index.html">Features &amp; Benefits</a></li>
+<li><a href="features/anti-replay.html">Anti-replay</a></li>
+<li><a href="features/response.html">Two-way Response</a></li>
+<li><a href="features/file-small.html">Small Files</a></li>
+<li><a href="features/file-stream.html">File Streaming</a></li>
+<li><a href="features/file-multipart.html">Multipart Files</a></li>
+<li><a href="features/webhook.html">Webhooks</a></li>
+<li><a href="features/ed25519.html">Ed25519</a></li>
+<li><a href="features/hybrid-pq.html">Hybrid Post-quantum</a></li>
+<li><a href="features/derive-keys.html">deriveKeys</a></li>
+<li><a href="features/bind-headers.html">bindHeaders</a></li>
+<li><a href="features/observability.html">Observability</a></li>
+<li><a href="features/rfc9421.html">RFC 9421</a></li>
+<li><a href="features/sdk-node-go.html">Node &amp; Go SDKs</a></li>
+<li><a href="features/cli.html">CLI</a></li>
+<li><a href="features/mtls.html">mTLS</a></li>
+<li><a href="features/kms.html">KMS</a></li>
+<li><a href="features/file-storage-delivery.html">File Storage &amp; Delivery</a></li>
+<li><a href="features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Ops</div><ul>
+<li><a href="warnings.html">Warnings</a></li>
+<li><a href="troubleshooting.html" aria-current="page">Troubleshooting</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Frameworks</div><ul>
+<li><a href="frameworks/native.html">Native PHP</a></li>
+<li><a href="frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="frameworks/laravel.html">Laravel</a></li>
+<li><a href="frameworks/lumen.html">Lumen</a></li>
+<li><a href="frameworks/slim.html">Slim</a></li>
+<li><a href="frameworks/symfony.html">Symfony</a></li>
+<li><a href="frameworks/node.html">Node.js</a></li>
+<li><a href="frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Reference</div><ul>
+<li><a href="reference/options.html">Constructor Options</a></li>
+<li><a href="reference/headers.html">Security Headers</a></li>
+<li><a href="reference/events.html">Security Events</a></li>
+<li><a href="reference/exceptions.html">Exceptions</a></li>
+<li><a href="reference/methods.html">Public Methods</a></li>
+<li><a href="reference/env.html">Environment Variables</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">More</div><ul>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="versions.html">Versions &amp; Upgrading</a></li>
+<li><a href="security.html">Security &amp; Reporting</a></li>
+<li><a href="contributing.html">Contributing &amp; License</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        
+<h2 id="table">Symptom → fix</h2>
+<div class="table-wrap"><table><thead><tr><th>Symptom</th><th>Meaning</th><th>Likely cause</th><th>Fix</th></tr></thead><tbody><tr><td>401 / invalid signature</td><td>Seal mismatch</td><td>Different secret / changed body / path</td><td>Match keys; check method/path/query</td></tr><tr><td>401 / replay detected</td><td>Ticket already used</td><td>Retried request; file store multi-host</td><td>Fresh nonce; shared replayStore</td></tr><tr><td>401 / timestamp</td><td>Outside time window</td><td>Clock drift</td><td>NTP; raise clockSkew carefully</td></tr><tr><td>422 / decrypt failed</td><td>Locked envelope won't open</td><td>AEAD key / AAD / bindHeaders mismatch</td><td>Match keys & bindHeaders</td></tr><tr><td>500 / sodium</td><td>Missing extension</td><td>aead/both without sodium</td><td>Enable ext-sodium</td></tr></tbody></table></div>
+<h2 id="faq">FAQ</h2>
+<details class="acc"><summary>Rejected even with correct keys?</summary><div class="acc-body"><p>Normalized path differs, query order, or a proxy mutated the body. Align canonicalization.</p></div></details>
+<details class="acc"><summary>Safe behind a load balancer?</summary><div class="acc-body"><p>Yes, with a shared replayStore (Redis/Memcached) and requireReplayStore.</p></div></details>
+<details class="acc"><summary>Without encryption?</summary><div class="acc-body"><p>Yes — mode <code>hmac</code>. The body stays readable.</p></div></details>
+<details class="acc"><summary>Is response always HMAC?</summary><div class="acc-body"><p>No. Response follows <code>signAlg</code> (HMAC, server Ed25519, or hybrid).</p></div></details>
+<details class="acc"><summary>Default replayTtl / clockSkew?</summary><div class="acc-body"><p>120 and 60 seconds.</p></div></details>
+<details class="acc"><summary>Use X-Canonical-Request to verify?</summary><div class="acc-body"><p>No. Debug only.</p></div></details>
+<details class="acc"><summary>Upgrade v3 → v4?</summary><div class="acc-body"><p>Match <code>version</code> on both sides; see CHANGELOG for multipart wire.</p></div></details>
+<details class="acc"><summary>Safe debugging?</summary><div class="acc-body"><p>CLI <code>debug:verify</code> and <code>test:roundtrip</code> — never print secrets.</p></div></details>
+<details class="acc"><summary>Hybrid without pqSigner?</summary><div class="acc-body"><p>It fails closed. Provide an app implementation.</p></div></details>
+<details class="acc"><summary>Small file vs stream?</summary><div class="acc-body"><p>In-memory ≈ ≤10MB; streaming for large files.</p></div></details>
+<details class="acc"><summary>Is PSR-16 always atomic?</summary><div class="acc-body"><p>No. Prefer caches with atomic <code>add()</code>.</p></div></details>
+<details class="acc"><summary>Audited?</summary><div class="acc-body"><p>No third-party audit yet.</p></div></details>
+
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="warnings.html">Previous: Warnings</a>
+        <a href="frameworks/native.html">Next: Native PHP</a>
+      </nav>
+      <p class="footer-note">Was this page helpful?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: en/troubleshooting">Report an issue</a></p>
+    </main>
+    <aside class="site-toc" aria-label="On this page">
+      <div class="site-toc__title">On this page</div>
+      <nav><a href="#table">Symptom → fix</a><a href="#faq">FAQ</a></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Search">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Search…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>No results</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>

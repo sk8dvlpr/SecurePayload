@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SecurePayload Guide — Style Tile</title>
+  <link rel="icon" href="assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Preview only: Fase 2 self-host woff2. Logo resmi: assets/logo/ (dari docs/logo). -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-sans: "IBM Plex Sans", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      --font-mono: "IBM Plex Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-pill: 999px;
+      --ease: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      --max: 1120px;
+      --prose: 40rem;
+
+      /* Brand dari docs/logo — indigo → cyan */
+      --brand-indigo: #4F46E5;
+      --brand-cyan: #06B6D4;
+      --brand-grad: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%);
+
+      --bg: #f4f5f8;
+      --bg-elev: #ffffff;
+      --bg-muted: #e8eaf0;
+      --text: #0F172A;
+      --text-muted: #64748B;
+      --border: rgba(15, 23, 42, 0.08);
+      --border-strong: rgba(15, 23, 42, 0.14);
+      --accent: #4F46E5;
+      --accent-hover: #4338CA;
+      --accent-soft: rgba(79, 70, 229, 0.12);
+      --accent-ink: #3730A3;
+      --info: #2563eb;
+      --info-bg: rgba(37, 99, 235, 0.1);
+      --tip: #16a34a;
+      --tip-bg: rgba(22, 163, 74, 0.1);
+      --warn: #d97706;
+      --warn-bg: rgba(217, 119, 6, 0.12);
+      --danger: #dc2626;
+      --danger-bg: rgba(220, 38, 38, 0.1);
+      --focus: #4F46E5;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -10px rgba(79, 70, 229, 0.18);
+      --shadow-lg: 0 2px 4px rgba(15, 23, 42, 0.04), 0 20px 44px -14px rgba(79, 70, 229, 0.28);
+      --glass: rgba(255, 255, 255, 0.78);
+    }
+
+    html[data-theme="dark"] {
+      --bg: #0B1220;
+      --bg-elev: #111827;
+      --bg-muted: #1E293B;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --border: rgba(248, 250, 252, 0.08);
+      --border-strong: rgba(248, 250, 252, 0.14);
+      --accent: #818CF8;
+      --accent-hover: #A5B4FC;
+      --accent-soft: rgba(129, 140, 248, 0.16);
+      --accent-ink: #C7D2FE;
+      --info: #93c5fd;
+      --info-bg: rgba(59, 130, 246, 0.16);
+      --tip: #86efac;
+      --tip-bg: rgba(34, 197, 94, 0.14);
+      --warn: #fbbf24;
+      --warn-bg: rgba(245, 158, 11, 0.16);
+      --danger: #fca5a5;
+      --danger-bg: rgba(239, 68, 68, 0.16);
+      --focus: #22D3EE;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 14px 32px -12px rgba(6, 182, 212, 0.25);
+      --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.4), 0 28px 56px -18px rgba(79, 70, 229, 0.35);
+      --glass: rgba(17, 24, 39, 0.8);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html[data-theme="auto"] {
+        --bg: #0B1220; --bg-elev: #111827; --bg-muted: #1E293B;
+        --text: #F8FAFC; --text-muted: #94A3B8;
+        --border: rgba(248,250,252,0.08); --border-strong: rgba(248,250,252,0.14);
+        --accent: #818CF8; --accent-hover: #A5B4FC;
+        --accent-soft: rgba(129,140,248,0.16); --accent-ink: #C7D2FE;
+        --info: #93c5fd; --info-bg: rgba(59,130,246,0.16);
+        --tip: #86efac; --tip-bg: rgba(34,197,94,0.14);
+        --warn: #fbbf24; --warn-bg: rgba(245,158,11,0.16);
+        --danger: #fca5a5; --danger-bg: rgba(239,68,68,0.16);
+        --focus: #22D3EE;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+        --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 14px 32px -12px rgba(6,182,212,0.25);
+        --shadow-lg: 0 4px 8px rgba(0,0,0,0.4), 0 28px 56px -18px rgba(79,70,229,0.35);
+        --glass: rgba(17,24,39,0.8);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { font-size: 16px; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      color: var(--text);
+      line-height: 1.65;
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(900px 500px at 6% -10%, color-mix(in srgb, var(--brand-indigo) 22%, transparent), transparent 55%),
+        radial-gradient(760px 440px at 96% 0%, color-mix(in srgb, var(--brand-cyan) 16%, transparent), transparent 52%),
+        linear-gradient(180deg, transparent 0%, var(--bg) 46%);
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+    .shell { max-width: var(--max); margin: 0 auto; padding: 24px 24px 80px; }
+    @media (min-width: 768px) { .shell { padding: 28px 40px 96px; } }
+
+    .topbar {
+      position: sticky; top: 12px; z-index: 20;
+      display: flex; flex-wrap: wrap; gap: 12px 16px;
+      align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      margin-bottom: 36px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 4px);
+      background: var(--glass);
+      backdrop-filter: blur(14px) saturate(1.2);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2);
+      box-shadow: var(--shadow-sm);
+    }
+    .brand-block {
+      display: flex; align-items: center; min-width: 0;
+      text-decoration: none; color: inherit;
+    }
+    .brand-wordmark {
+      height: 40px; width: auto; max-width: min(300px, 58vw);
+      display: block;
+    }
+
+    /* Tampilkan wordmark light/dark sesuai tema */
+    .logo-light { display: block; }
+    .logo-dark { display: none; }
+    html[data-theme="dark"] .logo-light { display: none; }
+    html[data-theme="dark"] .logo-dark { display: block; }
+    @media (prefers-color-scheme: dark) {
+      html[data-theme="auto"] .logo-light { display: none; }
+      html[data-theme="auto"] .logo-dark { display: block; }
+    }
+
+    .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .segment {
+      display: inline-flex; padding: 4px; gap: 2px;
+      background: var(--bg-muted); border-radius: var(--radius-pill);
+      border: 1px solid var(--border);
+    }
+    .segment button {
+      appearance: none; border: 0; background: transparent; color: var(--text-muted);
+      font: inherit; font-size: 0.8125rem; font-weight: 550;
+      padding: 8px 12px; min-height: 36px; border-radius: var(--radius-pill); cursor: pointer;
+      transition: background var(--ease), color var(--ease), box-shadow var(--ease);
+    }
+    .segment button[aria-pressed="true"] {
+      background: var(--bg-elev); color: var(--text); box-shadow: var(--shadow-sm);
+    }
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 8px 12px; min-height: 36px;
+      border-radius: var(--radius-pill);
+      background: var(--accent-soft); color: var(--accent-ink);
+      font-size: 0.75rem; font-weight: 600;
+    }
+
+    .hero { margin: 0 0 40px; max-width: 38rem; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin: 0 0 14px; padding: 6px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--accent-soft); color: var(--accent-ink);
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: clamp(1.85rem, 3.2vw, 2.55rem);
+      line-height: 1.15; letter-spacing: -0.04em; font-weight: 700;
+    }
+    .hero p { margin: 0; color: var(--text-muted); font-size: 1.05rem; }
+
+    section { margin: 0 0 44px; }
+    .section-head { margin: 0 0 14px; }
+    .section-head h2 {
+      margin: 0; font-size: 0.8rem; font-weight: 650;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);
+    }
+
+    /* —— Brand lockups —— */
+    .brand-showcase {
+      display: grid; gap: 14px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 860px) {
+      .brand-showcase { grid-template-columns: 1.2fr 0.8fr; }
+    }
+    .brand-panel {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px 24px;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 14px;
+      min-height: 160px;
+    }
+    .brand-panel.on-dark {
+      background: #0B1220;
+      border-color: rgba(255,255,255,0.08);
+    }
+    .brand-panel img.full {
+      width: min(420px, 100%); height: auto; display: block;
+    }
+    .brand-panel .caption {
+      margin: 0; font-size: 0.8rem; color: var(--text-muted);
+    }
+    .brand-panel.on-dark .caption { color: #94A3B8; }
+    .icon-row {
+      display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+    }
+    .icon-card {
+      text-align: center;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .icon-card.on-dark { background: #0B1220; border-color: rgba(255,255,255,0.08); }
+    .icon-card img { width: 72px; height: 72px; display: block; margin: 0 auto 8px; }
+    .icon-card span { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+    .icon-card.on-dark span { color: #94A3B8; }
+
+    .swatches {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    }
+    @media (min-width: 720px) { .swatches { grid-template-columns: repeat(8, 1fr); gap: 12px; } }
+    .swatch {
+      border-radius: 14px; overflow: hidden;
+      background: var(--bg-elev); border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--ease), box-shadow var(--ease);
+    }
+    .swatch:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .swatch i { display: block; aspect-ratio: 1 / 0.85; }
+    .swatch.grad i { background: var(--brand-grad); }
+    .swatch span {
+      display: block; padding: 8px 6px 10px;
+      font-size: 0.68rem; font-weight: 600; color: var(--text-muted); text-align: center;
+    }
+
+    .surface {
+      background: var(--bg-elev); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+    }
+    .surface-pad { padding: 20px 22px; }
+    @media (min-width: 768px) { .surface-pad { padding: 24px 28px; } }
+
+    .type-sample { display: flex; flex-direction: column; gap: 14px; }
+    .type-sample .display {
+      font-size: clamp(1.6rem, 2.5vw, 2rem); font-weight: 700;
+      letter-spacing: -0.035em; line-height: 1.2; margin: 0;
+    }
+    .type-sample .display .mark { color: var(--accent); }
+    .type-sample .section {
+      font-size: 1.2rem; font-weight: 650; letter-spacing: -0.02em; margin: 0;
+    }
+    .type-sample .body { margin: 0; max-width: var(--prose); color: var(--text-muted); }
+    .type-sample code {
+      font-family: var(--font-mono); font-size: 0.9em;
+      background: var(--bg-muted); padding: 2px 6px; border-radius: 6px; color: var(--text);
+    }
+
+    .btn-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .btn {
+      appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 12px; font: inherit; font-weight: 600; font-size: 0.95rem;
+      padding: 12px 18px; min-height: 48px; cursor: pointer;
+      transition: transform var(--ease), box-shadow var(--ease), filter var(--ease), border-color var(--ease);
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      border: 0; color: #fff; background: var(--brand-grad);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 24px -10px rgba(79, 70, 229, 0.65);
+    }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-secondary {
+      border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-secondary:hover { border-color: color-mix(in srgb, var(--brand-indigo) 40%, var(--border-strong)); }
+
+    .path-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 800px) { .path-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
+    .path-card {
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 18px 18px 16px; text-decoration: none; color: inherit;
+      background: var(--bg-elev); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow-sm);
+      transition: transform var(--ease), box-shadow var(--ease), border-color var(--ease);
+    }
+    .path-card:hover {
+      transform: translateY(-3px); box-shadow: var(--shadow);
+      border-color: color-mix(in srgb, var(--brand-cyan) 40%, var(--border));
+    }
+    .path-card .num {
+      width: 28px; height: 28px; border-radius: 9px;
+      display: grid; place-items: center;
+      font-size: 0.75rem; font-weight: 700; color: #fff;
+      background: var(--brand-grad);
+    }
+    .path-card h3 { margin: 0; font-size: 1.05rem; font-weight: 650; letter-spacing: -0.02em; }
+    .path-card p { margin: 0; color: var(--text-muted); font-size: 0.92rem; }
+    .path-card .go { margin-top: 4px; font-size: 0.85rem; font-weight: 600; color: var(--accent); }
+
+    .callouts { display: grid; gap: 10px; }
+    .callout {
+      display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+      padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-elev);
+    }
+    .callout .ico {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: grid; place-items: center; font-size: 0.85rem; font-weight: 700;
+    }
+    .callout .label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; margin: 0 0 2px; }
+    .callout p { margin: 0; font-size: 0.95rem; }
+    .callout.info { background: var(--info-bg); border-color: color-mix(in srgb, var(--info) 25%, var(--border)); }
+    .callout.info .ico, .callout.info .label { color: var(--info); }
+    .callout.info .ico { background: color-mix(in srgb, var(--info) 18%, transparent); }
+    .callout.tip { background: var(--tip-bg); border-color: color-mix(in srgb, var(--tip) 25%, var(--border)); }
+    .callout.tip .ico, .callout.tip .label { color: var(--tip); }
+    .callout.tip .ico { background: color-mix(in srgb, var(--tip) 18%, transparent); }
+    .callout.warn { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 25%, var(--border)); }
+    .callout.warn .ico, .callout.warn .label { color: var(--warn); }
+    .callout.warn .ico { background: color-mix(in srgb, var(--warn) 18%, transparent); }
+    .callout.danger { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 25%, var(--border)); }
+    .callout.danger .ico, .callout.danger .label { color: var(--danger); }
+    .callout.danger .ico { background: color-mix(in srgb, var(--danger) 18%, transparent); }
+
+    .tabs {
+      border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--border); background: var(--bg-elev); box-shadow: var(--shadow-sm);
+    }
+    .tablist { display: flex; gap: 4px; padding: 6px; background: var(--bg-muted); border-bottom: 1px solid var(--border); }
+    .tab {
+      flex: 1; min-height: 40px; border: 0; border-radius: 10px;
+      background: transparent; color: var(--text-muted);
+      font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    }
+    .tab[aria-selected="true"] {
+      background: var(--bg-elev); color: var(--text); box-shadow: var(--shadow-sm);
+    }
+    .tabpanel { padding: 18px 20px; color: var(--text-muted); }
+
+    .code {
+      position: relative; border-radius: var(--radius);
+      background: #0B1220; color: #e8eef7;
+      padding: 18px 20px; font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.55;
+      overflow-x: auto; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .code .lang {
+      position: absolute; top: 12px; left: 14px;
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8b98a8;
+    }
+    .code .copy {
+      position: absolute; top: 10px; right: 10px; min-height: 36px; padding: 6px 12px; border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
+      color: #e2e8f0; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    }
+    .code pre { margin: 28px 0 0; white-space: pre; font: inherit; }
+
+    .stepper { list-style: none; margin: 0; padding: 4px 0 0; }
+    .stepper li { position: relative; padding: 0 0 22px 44px; }
+    .stepper li:last-child { padding-bottom: 0; }
+    .stepper li::before {
+      content: attr(data-n); position: absolute; left: 0; top: 0;
+      width: 30px; height: 30px; border-radius: 10px;
+      background: var(--brand-grad); color: #fff;
+      display: grid; place-items: center; font-size: 0.8rem; font-weight: 700;
+      box-shadow: 0 8px 16px -8px rgba(79, 70, 229, 0.7);
+    }
+    .stepper li:not(:last-child)::after {
+      content: ""; position: absolute; left: 14px; top: 32px; bottom: 4px; width: 2px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--brand-cyan) 55%, transparent), var(--border));
+      border-radius: 2px;
+    }
+    .stepper strong { display: block; margin-bottom: 2px; }
+    .stepper span { color: var(--text-muted); font-size: 0.92rem; }
+
+    .table-wrap {
+      overflow-x: auto; border-radius: var(--radius);
+      border: 1px solid var(--border); box-shadow: var(--shadow-sm); background: var(--bg-elev);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+    th { background: var(--bg-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child, th:first-child { position: sticky; left: 0; font-weight: 650; background: var(--bg-elev); }
+    th:first-child { background: var(--bg-muted); }
+
+    details.acc {
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 4px; background: var(--bg-elev); box-shadow: var(--shadow-sm);
+    }
+    details.acc summary {
+      cursor: pointer; list-style: none; padding: 12px 14px; font-weight: 600; border-radius: 10px;
+    }
+    details.acc summary::-webkit-details-marker { display: none; }
+    details.acc[open] summary { background: var(--bg-muted); }
+    details.acc .acc-body { padding: 12px 14px 14px; color: var(--text-muted); font-size: 0.95rem; }
+
+    .term {
+      border: 0; border-bottom: 1.5px dotted var(--accent);
+      background: transparent; font: inherit; color: inherit; padding: 0 1px; cursor: help;
+    }
+
+    footer.note {
+      margin-top: 56px; padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.875rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+      .swatch:hover, .path-card:hover, .btn:active { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand-block" href="#top" id="top" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload — PHP Security Library" />
+        <img class="brand-wordmark logo-dark" src="assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload — PHP Security Library" />
+      </a>
+      <div class="top-actions">
+        <div class="segment" role="group" aria-label="Tema">
+          <button type="button" data-theme-set="light" aria-pressed="true">Terang</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false">Gelap</button>
+          <button type="button" data-theme-set="auto" aria-pressed="false">Otomatis</button>
+        </div>
+        <span class="badge">v3.2.0 · protocol 4</span>
+      </div>
+    </header>
+
+    <div class="hero">
+      <p class="eyebrow">Brand + design system</p>
+      <h1>Logo resmi, warna selaras</h1>
+      <p>Aksen mengikuti logo di <code>docs/logo</code>: indigo <strong>#4F46E5</strong> → cyan <strong>#06B6D4</strong>. Wordmark light/dark berganti otomatis dengan tema.</p>
+    </div>
+
+    <section aria-labelledby="sec-logo">
+      <div class="section-head"><h2 id="sec-logo">Logo lockup</h2></div>
+      <div class="brand-showcase">
+        <div class="brand-panel">
+          <img class="full" src="assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload wordmark pada latar terang" />
+          <p class="caption">Wordmark terang — <code>v4-a-shield-code-logo.svg</code></p>
+        </div>
+        <div class="brand-panel on-dark">
+          <img class="full" src="assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload wordmark pada latar gelap" />
+          <p class="caption">Wordmark gelap — <code>v4-a-shield-code-logo-dark.svg</code></p>
+        </div>
+      </div>
+      <div class="icon-row" style="margin-top:14px">
+        <div class="icon-card">
+          <img src="assets/logo/v4-a-shield-code-icon.svg" alt="Ikon SecurePayload" />
+          <span>Icon SVG</span>
+        </div>
+        <div class="icon-card on-dark">
+          <img src="assets/logo/v4-a-shield-code-icon.svg" alt="Ikon SecurePayload di gelap" />
+          <span>Icon di gelap</span>
+        </div>
+        <div class="icon-card">
+          <img src="assets/logo/v4-a-shield-code-icon-512.png" alt="Ikon PNG 512" />
+          <span>PNG 512</span>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-warna">
+      <div class="section-head"><h2 id="sec-warna">Warna (selaras logo)</h2></div>
+      <div class="swatches">
+        <div class="swatch grad"><i></i><span>brand</span></div>
+        <div class="swatch"><i style="background:#4F46E5"></i><span>indigo</span></div>
+        <div class="swatch"><i style="background:#06B6D4"></i><span>cyan</span></div>
+        <div class="swatch"><i style="background:var(--bg)"></i><span>bg</span></div>
+        <div class="swatch"><i style="background:var(--bg-elev)"></i><span>elev</span></div>
+        <div class="swatch"><i style="background:var(--text)"></i><span>text</span></div>
+        <div class="swatch"><i style="background:var(--warn)"></i><span>warn</span></div>
+        <div class="swatch"><i style="background:var(--danger)"></i><span>danger</span></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-type">
+      <div class="section-head"><h2 id="sec-type">Tipografi</h2></div>
+      <div class="surface surface-pad type-sample">
+        <p class="display">Secure<span class="mark">Payload</span> — judul halaman</p>
+        <p class="section">Section / H2 — bagian konten</p>
+        <p class="body">Body 16px · line-height 1.65. Kode: <code>verify()</code>. Wordmark logo memakai Inter/Plus Jakarta; UI panduan memakai IBM Plex untuk keterbacaan.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-btn">
+      <div class="section-head"><h2 id="sec-btn">Tombol</h2></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" type="button">Mulai dalam 10 menit</button>
+        <button class="btn btn-secondary" type="button">Pahami dulu konsepnya</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-path">
+      <div class="section-head"><h2 id="sec-path">Kartu jalur belajar</h2></div>
+      <div class="path-grid">
+        <a class="path-card" href="#path-1">
+          <span class="num">1</span>
+          <h3>Saya ingin paham dulu</h3>
+          <p>Tanpa kode. Analogi amplop bersegel dan tiket sekali pakai.</p>
+          <span class="go">Ke konsep →</span>
+        </a>
+        <a class="path-card" href="#path-2">
+          <span class="num">2</span>
+          <h3>Saya developer</h3>
+          <p>Instalasi, quick start, lalu request aman pertama.</p>
+          <span class="go">Mulai cepat →</span>
+        </a>
+        <a class="path-card" href="#path-3">
+          <span class="num">3</span>
+          <h3>Saya mengurus keamanan</h3>
+          <p>Mode, replay store, dan checklist produksi.</p>
+          <span class="go">Ke peringatan →</span>
+        </a>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-callout">
+      <div class="section-head"><h2 id="sec-callout">Callout</h2></div>
+      <div class="callouts">
+        <div class="callout info">
+          <span class="ico" aria-hidden="true">i</span>
+          <div><p class="label">Info</p><p>Server menurunkan method/path/query dari request-nya sendiri.</p></div>
+        </div>
+        <div class="callout tip">
+          <span class="ico" aria-hidden="true">✓</span>
+          <div><p class="label">Tips</p><p>Samakan <code>version</code> di client dan server (default <code>4</code>).</p></div>
+        </div>
+        <div class="callout warn">
+          <span class="ico" aria-hidden="true">!</span>
+          <div><p class="label">Peringatan</p><p>Mode <code>hmac</code> tidak mengenkripsi isi pesan.</p></div>
+        </div>
+        <div class="callout danger">
+          <span class="ico" aria-hidden="true">‼</span>
+          <div><p class="label">Penting</p><p>Di belakang load balancer, wajib <code>replayStore</code> terpusat.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-tabs">
+      <div class="section-head"><h2 id="sec-tabs">Tab</h2></div>
+      <div class="tabs">
+        <div class="tablist" role="tablist" aria-label="Framework">
+          <button class="tab" role="tab" id="t1" aria-controls="p1" aria-selected="true">Native PHP</button>
+          <button class="tab" role="tab" id="t2" aria-controls="p2" aria-selected="false">Laravel</button>
+          <button class="tab" role="tab" id="t3" aria-controls="p3" aria-selected="false">Node</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p1" aria-labelledby="t1">Raw body dari <code>php://input</code> sebelum diparse.</div>
+        <div class="tabpanel" role="tabpanel" id="p2" aria-labelledby="t2" hidden>Baca raw body sebelum middleware lain mengonsumsinya.</div>
+        <div class="tabpanel" role="tabpanel" id="p3" aria-labelledby="t3" hidden>Express/Fastify — raw body wajib sebelum verify.</div>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-code">
+      <div class="section-head"><h2 id="sec-code">Blok kode</h2></div>
+      <div class="code" tabindex="0">
+        <span class="lang">PHP</span>
+        <button class="copy" type="button" data-copy aria-live="polite">Salin</button>
+<pre id="sample-code">$client = new SecurePayload([
+    'mode' =&gt; 'both',
+    'clientId' =&gt; 'client_001',
+    'keyId' =&gt; 'key_v1',
+]);</pre>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-step">
+      <div class="section-head"><h2 id="sec-step">Stepper</h2></div>
+      <div class="surface surface-pad">
+        <ol class="stepper">
+          <li data-n="1"><strong>Buat kunci</strong><span>HMAC ≥32 karakter; AEAD tepat 32 byte.</span></li>
+          <li data-n="2"><strong>Siapkan pengirim</strong><span>buildHeadersAndBody atau send().</span></li>
+          <li data-n="3"><strong>Siapkan penerima</strong><span>keyLoader + verify() dengan method/path/query server.</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-table">
+      <div class="section-head"><h2 id="sec-table">Tabel</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mode</th><th>Manfaat</th><th>Persiapan</th></tr></thead>
+          <tbody>
+            <tr><td>hmac</td><td>Segel utuh</td><td>HMAC atau Ed25519</td></tr>
+            <tr><td>aead</td><td>Isi terkunci</td><td>AEAD 32 byte + sodium</td></tr>
+            <tr><td>both</td><td>Segel + kunci</td><td>Kombinasi + sodium</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="sec-acc">
+      <div class="section-head"><h2 id="sec-acc">Accordion &amp; istilah</h2></div>
+      <details class="acc">
+        <summary>Detail teknis</summary>
+        <div class="acc-body">Replay key = hash(clientId|keyId|nonce). Jendela ingat = replayTtl + clockSkew.</div>
+      </details>
+      <p style="margin:14px 0 0;color:var(--text-muted)">
+        Contoh tooltip:
+        <button type="button" class="term" title="Kode unik sekali pakai pada tiap pesan.">nonce</button>
+      </p>
+    </section>
+
+    <footer class="note">
+      Logo disalin ke <code>guide/planning/assets/logo/</code> dari <code>docs/logo/</code>.
+      Aksen UI mengikuti gradien brand (bukan teal sebelumnya). Segarkan halaman + coba tema Gelap untuk wordmark gelap.
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var themeBtns = Array.prototype.slice.call(document.querySelectorAll("[data-theme-set]"));
+      function setTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        themeBtns.forEach(function (b) {
+          b.setAttribute("aria-pressed", b.getAttribute("data-theme-set") === theme ? "true" : "false");
+        });
+      }
+      themeBtns.forEach(function (btn) {
+        btn.addEventListener("click", function () { setTheme(btn.getAttribute("data-theme-set")); });
+      });
+
+      var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+      tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          tabs.forEach(function (t) {
+            var on = t === tab;
+            t.setAttribute("aria-selected", on ? "true" : "false");
+            document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+          });
+        });
+      });
+
+      var copyBtn = document.querySelector("[data-copy]");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
+          var text = document.getElementById("sample-code").textContent;
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function () {
+              copyBtn.textContent = "Tersalin ✓";
+              setTimeout(function () { copyBtn.textContent = "Salin"; }, 1400);
+            });
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

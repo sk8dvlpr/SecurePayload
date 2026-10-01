@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Choose Your Setup · SecurePayload</title>
+  <meta name="description" content="Interactive wizard to pick hmac/aead/both mode and signing algorithm." />
+  <meta name="sp-asset-base" content="../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/en/choose-setup.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/choose-setup.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/choose-setup.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/choose-setup.html" />
+  <meta property="og:title" content="Choose Your Setup · SecurePayload" />
+  <meta property="og:description" content="Interactive wizard to pick hmac/aead/both mode and signing algorithm." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/en/choose-setup.html" />
+  <link rel="icon" href="../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Search</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../id/choose-setup.html" >ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../en/choose-setup.html" aria-current='true'>EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Light</button>
+        <button type="button" data-theme-set="dark">Dark</button>
+        <button type="button" data-theme-set="auto">Auto</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Home</div><ul>
+<li><a href="index.html">Home</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Concepts</div><ul>
+<li><a href="basics.html">The Basics</a></li>
+<li><a href="choose-setup.html" aria-current="page">Choose Your Setup</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Start</div><ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="quickstart.html">Quick Start</a></li>
+<li><a href="keys.html">Managing Keys</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Features</div><ul>
+<li><a href="features/index.html">Features &amp; Benefits</a></li>
+<li><a href="features/anti-replay.html">Anti-replay</a></li>
+<li><a href="features/response.html">Two-way Response</a></li>
+<li><a href="features/file-small.html">Small Files</a></li>
+<li><a href="features/file-stream.html">File Streaming</a></li>
+<li><a href="features/file-multipart.html">Multipart Files</a></li>
+<li><a href="features/webhook.html">Webhooks</a></li>
+<li><a href="features/ed25519.html">Ed25519</a></li>
+<li><a href="features/hybrid-pq.html">Hybrid Post-quantum</a></li>
+<li><a href="features/derive-keys.html">deriveKeys</a></li>
+<li><a href="features/bind-headers.html">bindHeaders</a></li>
+<li><a href="features/observability.html">Observability</a></li>
+<li><a href="features/rfc9421.html">RFC 9421</a></li>
+<li><a href="features/sdk-node-go.html">Node &amp; Go SDKs</a></li>
+<li><a href="features/cli.html">CLI</a></li>
+<li><a href="features/mtls.html">mTLS</a></li>
+<li><a href="features/kms.html">KMS</a></li>
+<li><a href="features/file-storage-delivery.html">File Storage &amp; Delivery</a></li>
+<li><a href="features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Ops</div><ul>
+<li><a href="warnings.html">Warnings</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Frameworks</div><ul>
+<li><a href="frameworks/native.html">Native PHP</a></li>
+<li><a href="frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="frameworks/laravel.html">Laravel</a></li>
+<li><a href="frameworks/lumen.html">Lumen</a></li>
+<li><a href="frameworks/slim.html">Slim</a></li>
+<li><a href="frameworks/symfony.html">Symfony</a></li>
+<li><a href="frameworks/node.html">Node.js</a></li>
+<li><a href="frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Reference</div><ul>
+<li><a href="reference/options.html">Constructor Options</a></li>
+<li><a href="reference/headers.html">Security Headers</a></li>
+<li><a href="reference/events.html">Security Events</a></li>
+<li><a href="reference/exceptions.html">Exceptions</a></li>
+<li><a href="reference/methods.html">Public Methods</a></li>
+<li><a href="reference/env.html">Environment Variables</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">More</div><ul>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="versions.html">Versions &amp; Upgrading</a></li>
+<li><a href="security.html">Security &amp; Reporting</a></li>
+<li><a href="contributing.html">Contributing &amp; License</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        
+<p>Answer four questions. The result recommends mode and signing algorithm.</p>
+<div class="wizard" data-wizard data-wizard-rules="builtin">
+
+<div data-wizard-step="secret">
+  <h3>Is the payload secret?</h3>
+  <p class="btn-row">
+    <button type="button" class="btn btn-primary" data-wizard-answer="yes">Yes, lock it</button>
+    <button type="button" class="btn btn-secondary" data-wizard-answer="no">No, seal is enough</button>
+  </p>
+</div>
+<div data-wizard-step="shared">
+  <h3>May the receiver keep the same secret?</h3>
+  <p class="btn-row">
+    <button type="button" class="btn btn-primary" data-wizard-answer="yes">Yes, shared secret OK</button>
+    <button type="button" class="btn btn-secondary" data-wizard-answer="no">No, prefer public keys</button>
+  </p>
+</div>
+<div data-wizard-step="nonrep">
+  <h3>Need sender proof (non-repudiation)?</h3>
+  <p class="btn-row">
+    <button type="button" class="btn btn-primary" data-wizard-answer="yes">Yes, Ed25519</button>
+    <button type="button" class="btn btn-secondary" data-wizard-answer="no">Not needed</button>
+  </p>
+</div>
+<div data-wizard-step="lb">
+  <h3>Many servers behind a load balancer?</h3>
+  <p class="btn-row">
+    <button type="button" class="btn btn-primary" data-wizard-answer="yes">Yes</button>
+    <button type="button" class="btn btn-secondary" data-wizard-answer="no">No / single host</button>
+  </p>
+</div>
+  <div data-wizard-result hidden>
+    <h3>Recommendation</h3>
+    <p>Mode: <strong data-rec-mode></strong></p>
+    <p>Signing (signAlg): <strong data-rec-sign></strong></p>
+    <p class="replay-hint">Because of a load balancer, configure a shared <code>replayStore</code> and consider <code>requireReplayStore</code>.</p>
+    <p class="btn-row">
+      <a class="btn btn-primary" href="installation.html">Installation →</a>
+      <button type="button" class="btn btn-secondary" data-wizard-reset>Start over</button>
+    </p>
+  </div>
+</div>
+<h2 id="compare">Quick comparison</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Mode</th><th>Benefit</th><th>Needs</th></tr></thead>
+<tbody>
+<tr><td><code>hmac</code></td><td>Seal only</td><td>HMAC ≥32 chars</td></tr>
+<tr><td><code>aead</code></td><td>Encrypt only</td><td>AEAD 32-byte + sodium</td></tr>
+<tr><td><code>both</code></td><td>Seal + encrypt</td><td>Keduanya</td></tr>
+</tbody></table></div>
+<aside class="callout info" role="note"><span class="icon" aria-hidden="true">i</span><div><div class="label">signAlg</div><p>hmac | ed25519 | hybrid-mldsa44-ed25519 — ditentukan konfigurasi server (anti-downgrade).</p></div></aside>
+<details class="acc"><summary>Advanced</summary>
+<div class="acc-body">
+<p><code>ed25519</code>, hybrid PQ, <code>deriveKeys</code>, <code>bindHeaders</code> — lihat halaman Fitur.</p>
+</div></details>
+
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="basics.html">Previous: The Basics</a>
+        <a href="installation.html">Next: Installation</a>
+      </nav>
+      <p class="footer-note">Was this page helpful?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: en/choose-setup">Report an issue</a></p>
+    </main>
+    <aside class="site-toc" aria-label="On this page">
+      <div class="site-toc__title">On this page</div>
+      <nav><a href="#compare">Quick comparison</a></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Search">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Search…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>No results</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,632 @@
+[
+  {
+    "lang": "id",
+    "title": "Beranda",
+    "url": "id/index.html",
+    "text": "SecurePayload v3.2.0 Kirim data antar-server dengan aman Tidak bisa diubah, tidak bisa dibaca orang lain, tidak bisa diputar ulang. Mulai dalam 10 menit Pahami dulu konsepnya Tiga perlindungan 1 Pemalsuan Segel digital rusak jika isi diubah. 2 Penyadapan Isi dikunci (AEAD) di mode aead/both. 3 Replay Tiket sekali pakai + buku daftar. Pilih jalur belajar A Saya ingin paham dulu Konsep tanpa kode. Mulai → B Saya developer Instalasi → Mulai cepat. Mulai → C Saya ops/keamanan Peringatan & checklist. Mulai → Siapa yang cocok? API server-to-server, webhook masuk, atau klien yang harus membuktikan identitas dengan kunci bersama atau Ed25519. ! Kapan tidak Bukan pengganti login pengguna akhir atau OAuth penuh. Mode hmac tidak mengenkripsi. Status Library v3.2.0 · protokol default 4 PHP CI-tested 8.0–8.5 · lisensi MIT Belum ada audit keamanan pihak ketiga GitHub · Packagist sk8dvlpr/securepayload",
+    "category": "home"
+  },
+  {
+    "lang": "id",
+    "title": "Konsep Dasar",
+    "url": "id/basics.html",
+    "text": "Anda akan belajar tiga risiko dan cara SecurePayload menjaganya dengan analogi sederhana. Masalah yang dipecahkan Pemalsuan — orang mengubah body di tengah jalan. Penyadapan — orang membaca isi rahasia. Replay — orang mengirim ulang pesan sah. Analogi tetap Amplop bersegel = tanda tangan digital (HMAC / Ed25519). Amplop terkunci = enkripsi AEAD (XChaCha20-Poly1305). Tiket bernomor sekali pakai + tanggal = nonce + timestamp. Buku daftar tiket = replay store. Brankas kunci = KMS. Tiga mode Mode Arti ramah Kode Tanda tangan saja Segel, isi masih bisa dibaca hmac Kunci saja Isi terkunci, tanpa segel HMAC terpisah aead Keduanya Terkunci + tersegel (disarankan) both Alur singkat Klien membangun header keamanan + body → server memverifikasi dari method/path/query miliknya sendiri → menolak jika segel rusak, kunci gagal, atau tiket sudah dipakai. ‼ Penting Jangan percaya header X-Canonical-Request untuk verifikasi. Itu hanya petunjuk debug. Selanjutnya: Pilih Mode →",
+    "category": "basics"
+  },
+  {
+    "lang": "id",
+    "title": "Pilih Mode",
+    "url": "id/choose-setup.html",
+    "text": "Jawab empat pertanyaan. Hasilnya merekomendasikan mode dan algoritma tanda tangan. Apakah isi data rahasia? Ya, harus dikunci Tidak, cukup segel Apakah penerima boleh menyimpan kunci yang sama? Ya, shared secret OK Tidak, lebih suka kunci publik Perlu bukti pengirim (non-repudiation)? Ya, Ed25519 Tidak perlu Ada banyak server di belakang load balancer? Ya Tidak / satu host Rekomendasi Mode: Tanda tangan (signAlg): Karena ada load balancer, setel replayStore terpusat dan pertimbangkan requireReplayStore . Instalasi → Ulangi Perbandingan singkat Mode Manfaat Perlu hmac Segel saja HMAC ≥32 chars aead Kunci saja AEAD 32-byte + sodium both Segel + kunci Keduanya i signAlg hmac | ed25519 | hybrid-mldsa44-ed25519 — ditentukan konfigurasi server (anti-downgrade). Lanjutan ed25519 , hybrid PQ, deriveKeys , bindHeaders — lihat halaman Fitur.",
+    "category": "setup"
+  },
+  {
+    "lang": "id",
+    "title": "Instalasi",
+    "url": "id/installation.html",
+    "text": "Anda akan memasang library dan mengecek ekstensi yang dibutuhkan. Kebutuhan PHP ≥ 8.0 (CI menguji 8.0–8.5) ext-json , ext-hash ext-sodium wajib untuk mode aead / both dan Ed25519 Opsional: ext-curl , PSR-18, PSR-16, SDK KMS cloud Cek di mesin Anda bash Salin php -v php -m | findstr sodium Pasang lewat Composer bash Salin composer require sk8dvlpr/securepayload Jika berhasil, paket muncul di vendor/sk8dvlpr/securepayload . ✓ Tips Hybrid ML-DSA membutuhkan pqSigner dari aplikasi Anda — tidak dibundle. Selanjutnya: Mulai Cepat →",
+    "category": "install"
+  },
+  {
+    "lang": "id",
+    "title": "Mulai Cepat",
+    "url": "id/quickstart.html",
+    "text": "Target: request both berhasil dalam ≤ 10 menit. Kunci di bawah hanya untuk uji. Buat kunci uji HMAC ≥ 32 karakter; AEAD tepat 32 byte (base64). Sisi pengirim buildHeadersAndBody. Sisi penerima verify dengan method/path/query server. Kirim request Header X-* + body. Uji rusak Ubah body → harus ditolak. Contoh klien php Salin &lt;?php use SecurePayload\\SecurePayload; // TEST keys only — never use in production $hmac = str_repeat(&#x27;a&#x27;, 32); $aead = base64_encode(random_bytes(32)); $sp = new SecurePayload([ &#x27;mode&#x27; =&gt; &#x27;both&#x27;, &#x27;clientId&#x27; =&gt; &#x27;demo&#x27;, &#x27;keyId&#x27; =&gt; &#x27;v1&#x27;, &#x27;hmacSecretRaw&#x27; =&gt; $hmac, &#x27;aeadKeyB64&#x27; =&gt; $aead, ]); [$headers, $body] = $sp-&gt;buildHeadersAndBody( &#x27;https://example.test/api/orders&#x27;, &#x27;POST&#x27;, [&#x27;orderId&#x27; =&gt; 1] ); Contoh server php Salin &lt;?php $sp = new SecurePayload([ &#x27;mode&#x27; =&gt; &#x27;both&#x27;, &#x27;keyLoader&#x27; =&gt; function ($cid, $kid) use ($hmac, $aead) { return [&#x27;hmacSecret&#x27; =&gt; $hmac, &#x27;aeadKeyB64&#x27; =&gt; $aead]; }, // multi-server: inject replayStore + requireReplayStore ]); $result = $sp-&g",
+    "category": "quickstart"
+  },
+  {
+    "lang": "id",
+    "title": "Mengelola Kunci",
+    "url": "id/keys.html",
+    "text": "Cara membuat kunci HMAC secret: minimal 32 karakter . AEAD key: tepat 32 byte , disimpan sebagai base64. Ed25519: pasangan kunci; request memakai pasangan klien ; response memakai pasangan server . bash Salin composer exec securepayload keys:generate Tempat menyimpan Env ( EnvKeyProvider ), database ( DbKeyProvider ), atau brankas KMS . ‼ Jangan Jangan commit kunci ke git, jangan kirim lewat chat, jangan log secret. Rotasi KeyManager::rotateKey() / CLI keys:rotate mendukung masa tenggang ( useKeyLifecycle ). ! LocalKms Hanya untuk pengembangan. Produksi: Vault/AWS/GCP/Azure. Selanjutnya: Fitur →",
+    "category": "keys"
+  },
+  {
+    "lang": "id",
+    "title": "Fitur & Manfaat",
+    "url": "id/features/index.html",
+    "text": "Pilih fitur. Setiap halaman memakai template manfaat → kapan → cara → API. Anti-replay — Melindungi dari pesan sah yang dikirim ulang. Response Dua Arah — Server membalas dengan segel yang terikat ke nonce request. File Kecil — Kirim lampiran kecil di JSON (_attachment). File Streaming — Streaming secretstream per-chunk untuk file besar. File Multipart — Manifest aman + ciphertext dalam satu request multipart (wire v4). Webhook — Verifikasi webhook masuk dengan aturan yang sama. Ed25519 — Tanda tangan asimetris: klien private, server public. Hybrid Pasca-kuantum — Hybrid ML-DSA44 + Ed25519 untuk persiapan pasca-kuantum. deriveKeys — HKDF menurunkan subkey per fungsi dari master key. bindHeaders — Ikat header kritis ke AAD agar tidak bisa diganti diam-diam. Observability — Callback onSecurityEvent + Prometheus/OTel exporter. RFC 9421 — Jembatan interop ke HTTP Message Signatures. SDK Node &amp; Go — SDK Node.js &amp; Go mengikuti wire protocol (default 4). CLI — CLI untuk generate/rotate keys dan debug. mTLS — mTLS melengkapi SecurePayload di lapisan transport. KMS — Brankas kunci: Local, Vault, AWS, GCP, Azure. Penyimpanan File — Pola simpan &amp; kirim file setelah verifikasi aman",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Anti-replay",
+    "url": "id/features/anti-replay.html",
+    "text": "Apa ini? Melindungi dari pesan sah yang dikirim ulang. Kapan dipakai Nonce + timestamp + replay store (buku tiket). Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait checkReplay / replayStore / requireReplayStore ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Response Dua Arah",
+    "url": "id/features/response.html",
+    "text": "Apa ini? Server membalas dengan segel yang terikat ke nonce request. Kapan dipakai buildResponse / verifyResponse — mengikuti signAlg. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait buildResponse, verifyResponse ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "File Kecil",
+    "url": "id/features/file-small.html",
+    "text": "Apa ini? Kirim lampiran kecil di JSON (_attachment). Kapan dipakai Cocok ≤ ~10MB. Validasi ekstensi/MIME tersedia. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait buildFilePayload / verifyFilePayload ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "File Streaming",
+    "url": "id/features/file-stream.html",
+    "text": "Apa ini? Streaming secretstream per-chunk untuk file besar. Kapan dipakai RAM ≈ satu chunk. Gagal → plaintext parsial dihapus. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait buildFileStream / verifyFileStream ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "File Multipart",
+    "url": "id/features/file-multipart.html",
+    "text": "Apa ini? Manifest aman + ciphertext dalam satu request multipart (wire v4). Kapan dipakai Header X-SP-Multipart menandai aliran. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait buildFileStreamMultipartRequest ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Webhook",
+    "url": "id/features/webhook.html",
+    "text": "Apa ini? Verifikasi webhook masuk dengan aturan yang sama. Kapan dipakai WebhookVerifier di src/Webhook. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait WebhookVerifier ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Ed25519",
+    "url": "id/features/ed25519.html",
+    "text": "Apa ini? Tanda tangan asimetris: klien private, server public. Kapan dipakai Response Ed25519 memakai keypair server terpisah. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait signAlg=ed25519 ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Hybrid Pasca-kuantum",
+    "url": "id/features/hybrid-pq.html",
+    "text": "Apa ini? Hybrid ML-DSA44 + Ed25519 untuk persiapan pasca-kuantum. Kapan dipakai Butuh pqSigner dari aplikasi — tidak dibundle. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait signAlg=hybrid-mldsa44-ed25519 ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "deriveKeys",
+    "url": "id/features/derive-keys.html",
+    "text": "Apa ini? HKDF menurunkan subkey per fungsi dari master key. Kapan dipakai Opt-in deriveKeys=&gt;true; harus sama di kedua sisi. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait deriveKeys, deriveKey() ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "bindHeaders",
+    "url": "id/features/bind-headers.html",
+    "text": "Apa ini? Ikat header kritis ke AAD agar tidak bisa diganti diam-diam. Kapan dipakai X-Timestamp selalu terikat AAD di protocol v3+. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait bindHeaders ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Observability",
+    "url": "id/features/observability.html",
+    "text": "Apa ini? Callback onSecurityEvent + Prometheus/OTel exporter. Kapan dipakai Konteks event tidak berisi secret/plaintext. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait EVENT_*, PrometheusSecurityExporter ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "RFC 9421",
+    "url": "id/features/rfc9421.html",
+    "text": "Apa ini? Jembatan interop ke HTTP Message Signatures. Kapan dipakai Rfc9421Bridge di src/Interop. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait Interop\\\\Rfc9421Bridge ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "SDK Node & Go",
+    "url": "id/features/sdk-node-go.html",
+    "text": "Apa ini? SDK Node.js &amp; Go mengikuti wire protocol (default 4). Kapan dipakai Samakan version di semua runtime. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait packages/node-sdk, packages/go-sdk ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "CLI",
+    "url": "id/features/cli.html",
+    "text": "Apa ini? CLI untuk generate/rotate keys dan debug. Kapan dipakai keys:generate, keys:rotate, debug:verify, test:roundtrip, doctor. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait securepayload-cli ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "mTLS",
+    "url": "id/features/mtls.html",
+    "text": "Apa ini? mTLS melengkapi SecurePayload di lapisan transport. Kapan dipakai SecurePayload tetap menjaga payload &amp; replay. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait docs / examples mTLS ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "KMS",
+    "url": "id/features/kms.html",
+    "text": "Apa ini? Brankas kunci: Local, Vault, AWS, GCP, Azure. Kapan dipakai Vault Transit: derived=true. LocalKms hanya dev. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait VaultKms, AwsKms, GcpKms, AzureKeyVaultKms ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Penyimpanan File",
+    "url": "id/features/file-storage-delivery.html",
+    "text": "Apa ini? Pola simpan &amp; kirim file setelah verifikasi aman. Kapan dipakai Sanitasi nama file; jangan pakai nama mentah sebagai path. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait File/* + events file_* ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Idempotency & Compress",
+    "url": "id/features/idempotency-compress.html",
+    "text": "Apa ini? Idempotency-Key, compress, dan payloadSchema opsional. Kapan dipakai compress default false; schema gagal → event payload_schema_invalid. Cara kerja (analogi) Amplop bersegel / terkunci + tiket sekali pakai menjaga request terkait fitur ini. API terkait compress, payloadSchema, X-Idempotency-Key ! Peringatan Lihat juga Peringatan . Defaults: replayTtl=120, clockSkew=60. Detail teknis Protocol default 4. Library v3.2.0. signAlg ditentukan server. ← Hub fitur",
+    "category": "features"
+  },
+  {
+    "lang": "id",
+    "title": "Peringatan",
+    "url": "id/warnings.html",
+    "text": "Wajib / Do ⛔ Samakan versi protokol di klien & server (default 4). ⛔ Server wajib memakai method/path/query dari request sendiri. ⛔ Multi-server: replayStore terpusat + requireReplayStore . ⛔ HTTPS di produksi. ⚠️ HMAC ≥ 32 chars; AEAD 32 byte. ⚠️ deriveKeys dan bindHeaders harus sama di kedua sisi. 💡 Response mengikuti signAlg — bukan selalu HMAC. Jangan / Don&#x27;t ⛔ Jangan percaya X-Canonical-Request untuk verifikasi. ⛔ Jangan simpan private Ed25519 request di server. ⛔ Jangan log secret / plaintext. ⚠️ Jangan andalkan cache file bawaan di belakang load balancer. ⚠️ Jangan pakai LocalKms di produksi. 💡 Jangan anggap library sudah diaudit pihak ketiga — belum. Daftar periksa produksi Centang disimpan di browser (localStorage) bila tersedia. Protocol version sama di kedua sisi HTTPS wajib replayStore terpusat jika multi-server requireReplayStore diaktifkan di multi-server Kunci dari env/KMS, bukan hardcode signAlg ditetapkan di server Tim paham belum ada audit pihak ketiga Reset checklist i Default replayTtl=120, clockSkew=60. Jendela memori nonce = replayTtl + clockSkew. Selanjutnya: Troubleshooting →",
+    "category": "warnings"
+  },
+  {
+    "lang": "id",
+    "title": "Pemecahan Masalah",
+    "url": "id/troubleshooting.html",
+    "text": "Gejala → perbaikan Symptom Meaning Likely cause Fix 401 / tanda tangan invalid Segel tidak cocok Secret beda / body berubah / path beda Samakan kunci; cek method/path/query 401 / replay detected Tiket sudah dipakai Request diulang; store file multi-host Nonce baru; replayStore terpusat 401 / timestamp Di luar jendela waktu Jam server beda NTP; naikkan clockSkew hati-hati 422 / decrypt failed Amplop terkunci gagal dibuka AEAD key / AAD / bindHeaders beda Samakan kunci & bindHeaders 500 / sodium Ekstensi hilang Mode aead/both tanpa sodium Aktifkan ext-sodium FAQ Kenapa ditolak padahal kunci sudah benar? Path dinormalisasi beda, query order, atau body digeser proxy. Samakan canonical di kedua sisi. Aman di belakang load balancer? Ya, jika replayStore terbagi (Redis/Memcached) dan requireReplayStore aktif. Bisa tanpa enkripsi? Ya — mode hmac . Isi tetap terbaca. Response selalu HMAC? Tidak. Response mengikuti signAlg (HMAC, Ed25519 server, atau hybrid). Default replayTtl / clockSkew? 120 dan 60 detik. X-Canonical-Request untuk verify? Tidak. Hanya debug. Upgrade v3 → v4? Samakan version di kedua sisi; lihat CHANGELOG untuk wire multipart. Debug aman? CLI debug:verify dan test:roundtrip",
+    "category": "troubleshooting"
+  },
+  {
+    "lang": "id",
+    "title": "Native PHP",
+    "url": "id/frameworks/native.html",
+    "text": "Contoh Native PHP tanpa framework. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. php Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "CodeIgniter 4",
+    "url": "id/frameworks/ci4.html",
+    "text": "Integrasi CodeIgniter 4 (packages/ci4). ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. php Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Laravel",
+    "url": "id/frameworks/laravel.html",
+    "text": "Middleware Laravel; baca raw body sebelum parse. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. php Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Lumen",
+    "url": "id/frameworks/lumen.html",
+    "text": "Pola mirip Laravel untuk Lumen. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. php Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Slim",
+    "url": "id/frameworks/slim.html",
+    "text": "Middleware Slim PSR-15. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. php Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Symfony",
+    "url": "id/frameworks/symfony.html",
+    "text": "Bundle/event Symfony. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. php Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Node.js",
+    "url": "id/frameworks/node.html",
+    "text": "Express/Fastify via packages/node-sdk. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. js Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Go",
+    "url": "id/frameworks/go.html",
+    "text": "Gin/Echo/Fiber middleware di packages/go-sdk. ! Raw body Baca body mentah sebelum framework mem-parse JSON bila tanda tangan mencakup body. go Salin // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Peringatan produksi →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "id",
+    "title": "Opsi Konstruktor",
+    "url": "id/reference/options.html",
+    "text": "Referensi ringkas dari kode aktual. Opsi Konstruktor Name Value Notes mode hmac|aead|both Security mode signAlg hmac|ed25519|hybrid-mldsa44-ed25519 Server-controlled version default 4 Wire protocol replayTtl 120 Seconds clockSkew 60 Seconds requireReplayStore false Fail if no store deriveKeys false HKDF subkeys bindHeaders [] AAD-bound headers compress false Optional",
+    "category": "reference"
+  },
+  {
+    "lang": "id",
+    "title": "Header Keamanan",
+    "url": "id/reference/headers.html",
+    "text": "Referensi ringkas dari kode aktual. Header Keamanan Name Value Notes X-Client-Id Client identity Required X-Key-Id Key version Required X-Timestamp Send time Freshness X-Nonce One-time ticket Replay X-Signature* Seal Integrity X-Canonical-Request Debug hint Do not trust X-AEAD-* Locked envelope aead/both X-Resp-* Response seal Two-way",
+    "category": "reference"
+  },
+  {
+    "lang": "id",
+    "title": "Event Keamanan",
+    "url": "id/reference/events.html",
+    "text": "Referensi ringkas dari kode aktual. Event Keamanan Name Value Notes timestamp_invalid Time window replay_detected Ticket reused decrypt_failed AEAD fail signature_invalid Seal fail key_not_found Loader miss nonce_mismatch AEAD nonce payload_schema_invalid Schema",
+    "category": "reference"
+  },
+  {
+    "lang": "id",
+    "title": "Exception",
+    "url": "id/reference/exceptions.html",
+    "text": "Referensi ringkas dari kode aktual. Exception HTTP Code Meaning 400 BAD_REQUEST Incomplete headers / bad input 401 UNAUTHORIZED Signature / replay / timestamp 422 UNPROCESSABLE Decrypt / digest 500 SERVER_ERROR Config / sodium / requireReplayStore",
+    "category": "reference"
+  },
+  {
+    "lang": "id",
+    "title": "Method Publik",
+    "url": "id/reference/methods.html",
+    "text": "Referensi ringkas dari kode aktual. Method Publik Name Value Notes buildHeadersAndBody Client Build request verify / verifyOrThrow Server Verify request buildResponse Server Secure response verifyResponse Client Check response buildFilePayload / Stream Client Files verifyFilePayload / Stream Server Files",
+    "category": "reference"
+  },
+  {
+    "lang": "id",
+    "title": "Variabel Env",
+    "url": "id/reference/env.html",
+    "text": "Referensi ringkas dari kode aktual. Variabel Env Name Value Notes SECUREPAYLOAD_{CID}_{KID}_HMAC_SECRET HMAC EnvKeyProvider ..._AEAD_KEY_B64 AEAD 32-byte b64 ..._ED25519_PUBLIC_B64 Client pub Request verify ..._ED25519_SERVER_* Server pair Response SECURE_KEKS / SECURE_KEK_* LocalKms Dev wrapping",
+    "category": "reference"
+  },
+  {
+    "lang": "id",
+    "title": "Kamus Istilah",
+    "url": "id/glossary.html",
+    "text": "Kamus istilah tetap untuk tooltip. signature Segel pada amplop; jika isi berubah, segelnya rusak. encryption Mengunci isi agar hanya penerima yang bisa membuka. nonce Kode unik sekali pakai pada tiap pesan. timestamp Cap waktu pengiriman; pesan lama ditolak. replay Orang menyalin pesan sah lalu mengirimnya lagi. replay-store Buku catatan tiket (nonce) yang sudah dipakai. clock-skew Toleransi jika jam dua server tidak persis sama. key-id Rahasia yang dipakai; nomor versi kuncinya. kms Brankas untuk menyimpan &amp; membungkus kunci. key-wrapping Menyimpan kunci di dalam kotak terkunci lain. ed25519 Pengirim punya kunci pribadi; penerima hanya kunci publik. post-quantum Persiapan menghadapi komputer kuantum di masa depan. middleware Lapisan yang memeriksa request sebelum sampai ke aplikasi. webhook Pesan otomatis dari sistem lain ke server Anda. load-balancer Pembagi lalu lintas ke beberapa server. protocol-version “Bahasa” wire yang harus sama di kedua sisi (default 4). canonical-request Bentuk baku method/path/query agar tanda tangan cocok.",
+    "category": "glossary"
+  },
+  {
+    "lang": "id",
+    "title": "Versi & Upgrade",
+    "url": "id/versions.html",
+    "text": "Library v3.2.0 Protocol default 4 ( SecurePayload::DEFAULT_VERSION ) PHP CI 8.0–8.5 i Upgrade Samakan version di klien & server. Wire v4 menambah multipart file stream. Lihat CHANGELOG di repositori untuk breaking changes.",
+    "category": "versions"
+  },
+  {
+    "lang": "id",
+    "title": "Keamanan & Pelaporan",
+    "url": "id/security.html",
+    "text": "! Audit Belum ada audit keamanan pihak ketiga. Laporkan kerentanan secara bertanggung jawab lewat kebijakan keamanan repositori. SECURITY.md Jangan publikasikan exploit detail sebelum perbaikan. Sertakan versi library dan langkah reproduksi aman.",
+    "category": "security"
+  },
+  {
+    "lang": "id",
+    "title": "Kontribusi & Lisensi",
+    "url": "id/contributing.html",
+    "text": "Kontribusi diterima lewat pull request di GitHub. Lisensi: MIT Repo: https://github.com/sk8dvlpr/SecurePayload Tes: composer test · Stan: composer stan",
+    "category": "contributing"
+  },
+  {
+    "lang": "en",
+    "title": "Home",
+    "url": "en/index.html",
+    "text": "SecurePayload v3.2.0 Send data between servers safely It cannot be changed, read by others, or replayed. Start in 10 minutes Learn the concepts first Three protections 1 Tampering The digital seal breaks if contents change. 2 Eavesdropping Contents are locked (AEAD) in aead/both. 3 Replay One-time tickets plus a logbook. Choose a learning path A I want concepts first No code yet. Start → B I am a developer Install → Quick start. Start → C I run ops/security Warnings & checklist. Start → Who is this for? Server-to-server APIs, inbound webhooks, or clients that must prove identity with a shared secret or Ed25519. ! When not Not a replacement for end-user login or full OAuth. Mode hmac does not encrypt. Status Library v3.2.0 · default protocol 4 PHP CI-tested 8.0–8.5 · MIT license No third-party security audit yet GitHub · Packagist sk8dvlpr/securepayload",
+    "category": "home"
+  },
+  {
+    "lang": "en",
+    "title": "The Basics",
+    "url": "en/basics.html",
+    "text": "You will learn three risks and how SecurePayload addresses them with simple analogies. Problem it solves Tampering — someone changes the body in transit. Eavesdropping — someone reads secret contents. Replay — someone resends a valid message. Fixed analogies Sealed envelope = digital signature (HMAC / Ed25519). Locked envelope = AEAD encryption (XChaCha20-Poly1305). One-time numbered ticket + date = nonce + timestamp. Ticket logbook = replay store. Key vault = KMS. Three modes Mode Plain meaning Code Sign only Seal; body may still be readable hmac Encrypt only Locked contents; no separate HMAC seal aead Both Locked + sealed (recommended) both Short flow Client builds security headers + body → server verifies using its own method/path/query → rejects if the seal breaks, decrypt fails, or the ticket was already used. ‼ Important Never trust the X-Canonical-Request header for verification. It is a debug hint only. Next: Choose Your Setup →",
+    "category": "basics"
+  },
+  {
+    "lang": "en",
+    "title": "Choose Your Setup",
+    "url": "en/choose-setup.html",
+    "text": "Answer four questions. The result recommends mode and signing algorithm. Is the payload secret? Yes, lock it No, seal is enough May the receiver keep the same secret? Yes, shared secret OK No, prefer public keys Need sender proof (non-repudiation)? Yes, Ed25519 Not needed Many servers behind a load balancer? Yes No / single host Recommendation Mode: Signing (signAlg): Because of a load balancer, configure a shared replayStore and consider requireReplayStore . Installation → Start over Quick comparison Mode Benefit Needs hmac Seal only HMAC ≥32 chars aead Encrypt only AEAD 32-byte + sodium both Seal + encrypt Keduanya i signAlg hmac | ed25519 | hybrid-mldsa44-ed25519 — ditentukan konfigurasi server (anti-downgrade). Advanced ed25519 , hybrid PQ, deriveKeys , bindHeaders — lihat halaman Fitur.",
+    "category": "setup"
+  },
+  {
+    "lang": "en",
+    "title": "Installation",
+    "url": "en/installation.html",
+    "text": "You will install the library and check required extensions. Requirements PHP ≥ 8.0 (CI tests 8.0–8.5) ext-json , ext-hash ext-sodium required for aead / both and Ed25519 Optional: ext-curl , PSR-18, PSR-16, cloud KMS SDKs Check on your machine bash Copy php -v php -m | grep sodium Install with Composer bash Copy composer require sk8dvlpr/securepayload On success, the package appears under vendor/sk8dvlpr/securepayload . ✓ Tip Hybrid ML-DSA needs a pqSigner from your app — it is not bundled. Next: Quick Start →",
+    "category": "install"
+  },
+  {
+    "lang": "en",
+    "title": "Quick Start",
+    "url": "en/quickstart.html",
+    "text": "Goal: a working both request in ≤ 10 minutes. Keys below are for tests only. Create test keys HMAC ≥ 32 chars; AEAD exactly 32 bytes (base64). Sender side buildHeadersAndBody. Receiver side verify with the server's method/path/query. Send the request X-* headers + body. Tamper test Change the body → must fail. Client example php Copy &lt;?php use SecurePayload\\SecurePayload; // TEST keys only — never use in production $hmac = str_repeat(&#x27;a&#x27;, 32); $aead = base64_encode(random_bytes(32)); $sp = new SecurePayload([ &#x27;mode&#x27; =&gt; &#x27;both&#x27;, &#x27;clientId&#x27; =&gt; &#x27;demo&#x27;, &#x27;keyId&#x27; =&gt; &#x27;v1&#x27;, &#x27;hmacSecretRaw&#x27; =&gt; $hmac, &#x27;aeadKeyB64&#x27; =&gt; $aead, ]); [$headers, $body] = $sp-&gt;buildHeadersAndBody( &#x27;https://example.test/api/orders&#x27;, &#x27;POST&#x27;, [&#x27;orderId&#x27; =&gt; 1] ); Server example php Copy &lt;?php $sp = new SecurePayload([ &#x27;mode&#x27; =&gt; &#x27;both&#x27;, &#x27;keyLoader&#x27; =&gt; function ($cid, $kid) use ($hmac, $aead) { return [&#x27;hmacSecret&#x27; =&gt; $hmac, &#x27;aeadKeyB64&#x27; =&gt; $aead]; }, // multi-server: inject replayStore + requireReplayStore ]); $resul",
+    "category": "quickstart"
+  },
+  {
+    "lang": "en",
+    "title": "Managing Keys",
+    "url": "en/keys.html",
+    "text": "How to create keys HMAC secret: at least 32 characters . AEAD key: exactly 32 bytes , stored as base64. Ed25519: key pairs; requests use the client pair; responses use the server pair. bash Copy composer exec securepayload keys:generate Where to store Env ( EnvKeyProvider ), database ( DbKeyProvider ), or a KMS vault . ‼ Don&#x27;t Do not commit keys to git, send them in chat, or log secrets. Rotation KeyManager::rotateKey() / CLI keys:rotate support a grace period ( useKeyLifecycle ). ! LocalKms Dev only. Production: Vault/AWS/GCP/Azure. Next: Features →",
+    "category": "keys"
+  },
+  {
+    "lang": "en",
+    "title": "Features & Benefits",
+    "url": "en/features/index.html",
+    "text": "Pick a feature. Each page uses benefits → when → how → API. Anti-replay — Stops valid messages from being sent again. Two-way Response — Server replies with a seal bound to the request nonce. Small Files — Send small attachments in JSON (_attachment). File Streaming — Per-chunk secretstream for large files. Multipart Files — Secure manifest + ciphertext in one multipart request (wire v4). Webhooks — Verify inbound webhooks with the same rules. Ed25519 — Asymmetric signing: client private, server public. Hybrid Post-quantum — Hybrid ML-DSA44 + Ed25519 for post-quantum readiness. deriveKeys — HKDF derives per-purpose subkeys from a master key. bindHeaders — Bind critical headers into AAD so they cannot be swapped quietly. Observability — onSecurityEvent callback + Prometheus/OTel exporters. RFC 9421 — Interop bridge to HTTP Message Signatures. Node &amp; Go SDKs — Node.js &amp; Go SDKs follow the wire protocol (default 4). CLI — CLI for key generate/rotate and debug. mTLS — mTLS complements SecurePayload at the transport layer. KMS — Key vaults: Local, Vault, AWS, GCP, Azure. File Storage &amp; Delivery — Patterns to store &amp; deliver files after safe verification. Idempotency &amp",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Anti-replay",
+    "url": "en/features/anti-replay.html",
+    "text": "What is this? Stops valid messages from being sent again. When to use Nonce + timestamp + replay store (ticket logbook). How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API checkReplay / replayStore / requireReplayStore ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Two-way Response",
+    "url": "en/features/response.html",
+    "text": "What is this? Server replies with a seal bound to the request nonce. When to use buildResponse / verifyResponse — follows signAlg. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API buildResponse, verifyResponse ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Small Files",
+    "url": "en/features/file-small.html",
+    "text": "What is this? Send small attachments in JSON (_attachment). When to use Suitable ≤ ~10MB. Extension/MIME validation available. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API buildFilePayload / verifyFilePayload ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "File Streaming",
+    "url": "en/features/file-stream.html",
+    "text": "What is this? Per-chunk secretstream for large files. When to use RAM ≈ one chunk. Failure deletes partial plaintext. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API buildFileStream / verifyFileStream ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Multipart Files",
+    "url": "en/features/file-multipart.html",
+    "text": "What is this? Secure manifest + ciphertext in one multipart request (wire v4). When to use X-SP-Multipart marks the flow. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API buildFileStreamMultipartRequest ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Webhooks",
+    "url": "en/features/webhook.html",
+    "text": "What is this? Verify inbound webhooks with the same rules. When to use WebhookVerifier in src/Webhook. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API WebhookVerifier ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Ed25519",
+    "url": "en/features/ed25519.html",
+    "text": "What is this? Asymmetric signing: client private, server public. When to use Response Ed25519 uses a separate server keypair. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API signAlg=ed25519 ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Hybrid Post-quantum",
+    "url": "en/features/hybrid-pq.html",
+    "text": "What is this? Hybrid ML-DSA44 + Ed25519 for post-quantum readiness. When to use Needs an app-supplied pqSigner — not bundled. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API signAlg=hybrid-mldsa44-ed25519 ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "deriveKeys",
+    "url": "en/features/derive-keys.html",
+    "text": "What is this? HKDF derives per-purpose subkeys from a master key. When to use Opt-in deriveKeys=&gt;true; must match both sides. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API deriveKeys, deriveKey() ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "bindHeaders",
+    "url": "en/features/bind-headers.html",
+    "text": "What is this? Bind critical headers into AAD so they cannot be swapped quietly. When to use X-Timestamp is always in AAD on protocol v3+. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API bindHeaders ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Observability",
+    "url": "en/features/observability.html",
+    "text": "What is this? onSecurityEvent callback + Prometheus/OTel exporters. When to use Event context never includes secrets/plaintext. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API EVENT_*, PrometheusSecurityExporter ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "RFC 9421",
+    "url": "en/features/rfc9421.html",
+    "text": "What is this? Interop bridge to HTTP Message Signatures. When to use Rfc9421Bridge in src/Interop. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API Interop\\\\Rfc9421Bridge ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Node & Go SDKs",
+    "url": "en/features/sdk-node-go.html",
+    "text": "What is this? Node.js &amp; Go SDKs follow the wire protocol (default 4). When to use Keep version aligned across runtimes. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API packages/node-sdk, packages/go-sdk ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "CLI",
+    "url": "en/features/cli.html",
+    "text": "What is this? CLI for key generate/rotate and debug. When to use keys:generate, keys:rotate, debug:verify, test:roundtrip, doctor. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API securepayload-cli ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "mTLS",
+    "url": "en/features/mtls.html",
+    "text": "What is this? mTLS complements SecurePayload at the transport layer. When to use SecurePayload still protects payload &amp; replay. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API docs / examples mTLS ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "KMS",
+    "url": "en/features/kms.html",
+    "text": "What is this? Key vaults: Local, Vault, AWS, GCP, Azure. When to use Vault Transit: derived=true. LocalKms is dev-only. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API VaultKms, AwsKms, GcpKms, AzureKeyVaultKms ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "File Storage & Delivery",
+    "url": "en/features/file-storage-delivery.html",
+    "text": "What is this? Patterns to store &amp; deliver files after safe verification. When to use Sanitize filenames; never use raw names as paths. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API File/* + events file_* ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Idempotency & Compress",
+    "url": "en/features/idempotency-compress.html",
+    "text": "What is this? Optional Idempotency-Key, compress, and payloadSchema. When to use compress defaults false; schema failure → payload_schema_invalid. How it works (analogy) Sealed / locked envelopes plus one-time tickets protect this feature's requests. Related API compress, payloadSchema, X-Idempotency-Key ! Warning Also see Warnings . Defaults: replayTtl=120, clockSkew=60. Technical details Default protocol 4. Library v3.2.0. signAlg is server-controlled. ← Features hub",
+    "category": "features"
+  },
+  {
+    "lang": "en",
+    "title": "Warnings",
+    "url": "en/warnings.html",
+    "text": "Do ⛔ Keep protocol version identical on client & server (default 4). ⛔ Server must use its own method/path/query. ⛔ Multi-server: shared replayStore + requireReplayStore . ⛔ HTTPS in production. ⚠️ HMAC ≥ 32 chars; AEAD 32 bytes. ⚠️ deriveKeys and bindHeaders must match both sides. 💡 Response follows signAlg — not always HMAC. Don&#x27;t ⛔ Do not trust X-Canonical-Request for verification. ⛔ Do not store the request Ed25519 private key on the server. ⛔ Do not log secrets / plaintext. ⚠️ Do not rely on the default file cache behind a load balancer. ⚠️ Do not use LocalKms in production. 💡 Do not assume a third-party audit exists — none yet. Production checklist Checks persist in the browser (localStorage) when available. Protocol version matches both sides HTTPS required Shared replayStore if multi-server requireReplayStore enabled for multi-server Keys from env/KMS, not hard-coded signAlg set by the server Team knows there is no third-party audit yet Reset checklist i Defaults replayTtl=120, clockSkew=60. Nonce memory window = replayTtl + clockSkew. Next: Troubleshooting →",
+    "category": "warnings"
+  },
+  {
+    "lang": "en",
+    "title": "Troubleshooting",
+    "url": "en/troubleshooting.html",
+    "text": "Symptom → fix Symptom Meaning Likely cause Fix 401 / invalid signature Seal mismatch Different secret / changed body / path Match keys; check method/path/query 401 / replay detected Ticket already used Retried request; file store multi-host Fresh nonce; shared replayStore 401 / timestamp Outside time window Clock drift NTP; raise clockSkew carefully 422 / decrypt failed Locked envelope won't open AEAD key / AAD / bindHeaders mismatch Match keys & bindHeaders 500 / sodium Missing extension aead/both without sodium Enable ext-sodium FAQ Rejected even with correct keys? Normalized path differs, query order, or a proxy mutated the body. Align canonicalization. Safe behind a load balancer? Yes, with a shared replayStore (Redis/Memcached) and requireReplayStore. Without encryption? Yes — mode hmac . The body stays readable. Is response always HMAC? No. Response follows signAlg (HMAC, server Ed25519, or hybrid). Default replayTtl / clockSkew? 120 and 60 seconds. Use X-Canonical-Request to verify? No. Debug only. Upgrade v3 → v4? Match version on both sides; see CHANGELOG for multipart wire. Safe debugging? CLI debug:verify and test:roundtrip — never print secrets. Hybrid without pqSigner?",
+    "category": "troubleshooting"
+  },
+  {
+    "lang": "en",
+    "title": "Native PHP",
+    "url": "en/frameworks/native.html",
+    "text": "Native PHP examples without a framework. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. php Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "CodeIgniter 4",
+    "url": "en/frameworks/ci4.html",
+    "text": "CodeIgniter 4 integration (packages/ci4). ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. php Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Laravel",
+    "url": "en/frameworks/laravel.html",
+    "text": "Laravel middleware; read raw body before parsing. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. php Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Lumen",
+    "url": "en/frameworks/lumen.html",
+    "text": "Laravel-like patterns for Lumen. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. php Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Slim",
+    "url": "en/frameworks/slim.html",
+    "text": "Slim PSR-15 middleware. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. php Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Symfony",
+    "url": "en/frameworks/symfony.html",
+    "text": "Symfony bundle/events. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. php Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Node.js",
+    "url": "en/frameworks/node.html",
+    "text": "Express/Fastify via packages/node-sdk. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. js Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Go",
+    "url": "en/frameworks/go.html",
+    "text": "Gin/Echo/Fiber middleware in packages/go-sdk. ! Raw body Read the raw body before the framework parses JSON if the signature covers the body. go Copy // TEST only — see examples/ and packages/\\n// Pass server method/path/query into verify() Production warnings →",
+    "category": "frameworks"
+  },
+  {
+    "lang": "en",
+    "title": "Constructor Options",
+    "url": "en/reference/options.html",
+    "text": "Short reference from actual code. Constructor Options Name Value Notes mode hmac|aead|both Security mode signAlg hmac|ed25519|hybrid-mldsa44-ed25519 Server-controlled version default 4 Wire protocol replayTtl 120 Seconds clockSkew 60 Seconds requireReplayStore false Fail if no store deriveKeys false HKDF subkeys bindHeaders [] AAD-bound headers compress false Optional",
+    "category": "reference"
+  },
+  {
+    "lang": "en",
+    "title": "Security Headers",
+    "url": "en/reference/headers.html",
+    "text": "Short reference from actual code. Security Headers Name Value Notes X-Client-Id Client identity Required X-Key-Id Key version Required X-Timestamp Send time Freshness X-Nonce One-time ticket Replay X-Signature* Seal Integrity X-Canonical-Request Debug hint Do not trust X-AEAD-* Locked envelope aead/both X-Resp-* Response seal Two-way",
+    "category": "reference"
+  },
+  {
+    "lang": "en",
+    "title": "Security Events",
+    "url": "en/reference/events.html",
+    "text": "Short reference from actual code. Security Events Name Value Notes timestamp_invalid Time window replay_detected Ticket reused decrypt_failed AEAD fail signature_invalid Seal fail key_not_found Loader miss nonce_mismatch AEAD nonce payload_schema_invalid Schema",
+    "category": "reference"
+  },
+  {
+    "lang": "en",
+    "title": "Exceptions",
+    "url": "en/reference/exceptions.html",
+    "text": "Short reference from actual code. Exceptions HTTP Code Meaning 400 BAD_REQUEST Incomplete headers / bad input 401 UNAUTHORIZED Signature / replay / timestamp 422 UNPROCESSABLE Decrypt / digest 500 SERVER_ERROR Config / sodium / requireReplayStore",
+    "category": "reference"
+  },
+  {
+    "lang": "en",
+    "title": "Public Methods",
+    "url": "en/reference/methods.html",
+    "text": "Short reference from actual code. Public Methods Name Value Notes buildHeadersAndBody Client Build request verify / verifyOrThrow Server Verify request buildResponse Server Secure response verifyResponse Client Check response buildFilePayload / Stream Client Files verifyFilePayload / Stream Server Files",
+    "category": "reference"
+  },
+  {
+    "lang": "en",
+    "title": "Environment Variables",
+    "url": "en/reference/env.html",
+    "text": "Short reference from actual code. Environment Variables Name Value Notes SECUREPAYLOAD_{CID}_{KID}_HMAC_SECRET HMAC EnvKeyProvider ..._AEAD_KEY_B64 AEAD 32-byte b64 ..._ED25519_PUBLIC_B64 Client pub Request verify ..._ED25519_SERVER_* Server pair Response SECURE_KEKS / SECURE_KEK_* LocalKms Dev wrapping",
+    "category": "reference"
+  },
+  {
+    "lang": "en",
+    "title": "Glossary",
+    "url": "en/glossary.html",
+    "text": "Fixed glossary for tooltips. signature A seal on an envelope; if the contents change, the seal breaks. encryption Locking the contents so only the receiver can open them. nonce A one-time code attached to every message. timestamp The send time; old messages are rejected. replay Someone copies a valid message and sends it again. replay-store A logbook of tickets (nonces) already used. clock-skew Allowed difference between two servers&#x27; clocks. key-id The secret in use; and its version number. kms A vault that stores and wraps keys. key-wrapping Keeping a key inside another locked box. ed25519 Sender holds a private key; receiver only holds a public key. post-quantum Preparation for future quantum computers. middleware A layer that checks a request before it reaches your app. webhook An automatic message another system sends to your server. load-balancer A traffic splitter across several servers. protocol-version The wire “language” both sides must share (default 4). canonical-request A normalized method/path/query so signatures match.",
+    "category": "glossary"
+  },
+  {
+    "lang": "en",
+    "title": "Versions & Upgrading",
+    "url": "en/versions.html",
+    "text": "Library v3.2.0 Default protocol 4 ( SecurePayload::DEFAULT_VERSION ) PHP CI 8.0–8.5 i Upgrade Keep version aligned on client & server. Wire v4 adds multipart file streaming. See the repository CHANGELOG for breaking changes.",
+    "category": "versions"
+  },
+  {
+    "lang": "en",
+    "title": "Security & Reporting",
+    "url": "en/security.html",
+    "text": "! Audit There is no third-party security audit yet. Report vulnerabilities responsibly via the repository security policy. SECURITY.md Do not publish exploit details before a fix. Include library version and safe reproduction steps.",
+    "category": "security"
+  },
+  {
+    "lang": "en",
+    "title": "Contributing & License",
+    "url": "en/contributing.html",
+    "text": "Contributions are welcome via GitHub pull requests. License: MIT Repo: https://github.com/sk8dvlpr/SecurePayload Tests: composer test · Stan: composer stan",
+    "category": "contributing"
+  }
+]

@@ -11,6 +11,8 @@
 
 **SecurePayload** adalah library PHP 8.0+ yang *framework-agnostic* untuk mengamankan pertukaran data lewat HTTP. Satu class `SecurePayload` berperan sebagai **kedua sisi** sekaligus — sisi *client* (membangun, menandatangani, mengenkripsi request) dan sisi *server* (memverifikasi, mendekripsi request) — tergantung method mana yang Anda panggil. Dilengkapi subsistem **KMS** untuk manajemen kunci per-client dan *key-wrapping*.
 
+📚 **User Guide (UI bilingual ID/EN):** folder [`guide/`](guide/) — situs statis siap GitHub Pages. Build: `python guide/tools/generate.py` (output `guide/dist/`). Pratinjau: `cd guide && npx serve dist`. Draf workflow: `guide/.github-workflow-draft/deploy.yml`.
+
 ---
 
 ## 📖 Apa yang Dilakukan Library Ini?

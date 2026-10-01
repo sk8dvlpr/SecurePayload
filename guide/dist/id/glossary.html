@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kamus Istilah · SecurePayload</title>
+  <meta name="description" content="Kamus istilah: nonce, replay store, KMS, canonical request, dan lainnya." />
+  <meta name="sp-asset-base" content="../assets/" />
+  <link rel="canonical" href="https://sk8dvlpr.github.io/securepayload/id/glossary.html" />
+  <link rel="alternate" hreflang="id" href="https://sk8dvlpr.github.io/securepayload/id/glossary.html" />
+  <link rel="alternate" hreflang="en" href="https://sk8dvlpr.github.io/securepayload/en/glossary.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sk8dvlpr.github.io/securepayload/en/glossary.html" />
+  <meta property="og:title" content="Kamus Istilah · SecurePayload" />
+  <meta property="og:description" content="Kamus istilah: nonce, replay store, KMS, canonical request, dan lainnya." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sk8dvlpr.github.io/securepayload/id/glossary.html" />
+  <link rel="icon" href="../assets/logo/v4-a-shield-code-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/logo/v4-a-shield-code-icon-512.png" />
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke konten</a>
+  <header class="site-topbar">
+    <div class="site-topbar__start">
+      <button type="button" class="icon-btn" data-sidebar-toggle aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <a class="brand-block" href="index.html" aria-label="SecurePayload">
+        <img class="brand-wordmark logo-light" src="../assets/logo/v4-a-shield-code-logo.svg" alt="SecurePayload" width="180" height="40" />
+        <img class="brand-wordmark logo-dark" src="../assets/logo/v4-a-shield-code-logo-dark.svg" alt="SecurePayload" width="180" height="40" />
+      </a>
+    </div>
+    <div class="site-topbar__end">
+      <button type="button" class="icon-btn" data-search-open aria-haspopup="dialog">Cari</button>
+      <div class="segment" role="group" aria-label="Language">
+        <a class="segment-item" data-lang-switch="id" href="../id/glossary.html" aria-current='true'>ID</a>
+        <a class="segment-item" data-lang-switch="en" href="../en/glossary.html" >EN</a>
+      </div>
+      <div class="segment" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">Terang</button>
+        <button type="button" data-theme-set="dark">Gelap</button>
+        <button type="button" data-theme-set="auto">Otomatis</button>
+      </div>
+      <span class="badge">v3.2.0</span>
+      <a class="top-link" href="https://github.com/sk8dvlpr/SecurePayload" rel="noopener">GitHub</a>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+  <div class="docs-shell">
+    <aside id="sidebar" class="site-sidebar-wrap">
+      <nav class="site-sidebar" aria-label="Docs">
+<div class="nav-group"><div class="nav-group-title">Beranda</div><ul>
+<li><a href="index.html">Beranda</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Konsep</div><ul>
+<li><a href="basics.html">Konsep Dasar</a></li>
+<li><a href="choose-setup.html">Pilih Mode</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Mulai</div><ul>
+<li><a href="installation.html">Instalasi</a></li>
+<li><a href="quickstart.html">Mulai Cepat</a></li>
+<li><a href="keys.html">Mengelola Kunci</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Fitur</div><ul>
+<li><a href="features/index.html">Fitur &amp; Manfaat</a></li>
+<li><a href="features/anti-replay.html">Anti-replay</a></li>
+<li><a href="features/response.html">Response Dua Arah</a></li>
+<li><a href="features/file-small.html">File Kecil</a></li>
+<li><a href="features/file-stream.html">File Streaming</a></li>
+<li><a href="features/file-multipart.html">File Multipart</a></li>
+<li><a href="features/webhook.html">Webhook</a></li>
+<li><a href="features/ed25519.html">Ed25519</a></li>
+<li><a href="features/hybrid-pq.html">Hybrid Pasca-kuantum</a></li>
+<li><a href="features/derive-keys.html">deriveKeys</a></li>
+<li><a href="features/bind-headers.html">bindHeaders</a></li>
+<li><a href="features/observability.html">Observability</a></li>
+<li><a href="features/rfc9421.html">RFC 9421</a></li>
+<li><a href="features/sdk-node-go.html">SDK Node &amp; Go</a></li>
+<li><a href="features/cli.html">CLI</a></li>
+<li><a href="features/mtls.html">mTLS</a></li>
+<li><a href="features/kms.html">KMS</a></li>
+<li><a href="features/file-storage-delivery.html">Penyimpanan File</a></li>
+<li><a href="features/idempotency-compress.html">Idempotency &amp; Compress</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Operasi</div><ul>
+<li><a href="warnings.html">Peringatan</a></li>
+<li><a href="troubleshooting.html">Pemecahan Masalah</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Framework</div><ul>
+<li><a href="frameworks/native.html">Native PHP</a></li>
+<li><a href="frameworks/ci4.html">CodeIgniter 4</a></li>
+<li><a href="frameworks/laravel.html">Laravel</a></li>
+<li><a href="frameworks/lumen.html">Lumen</a></li>
+<li><a href="frameworks/slim.html">Slim</a></li>
+<li><a href="frameworks/symfony.html">Symfony</a></li>
+<li><a href="frameworks/node.html">Node.js</a></li>
+<li><a href="frameworks/go.html">Go</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Referensi</div><ul>
+<li><a href="reference/options.html">Opsi Konstruktor</a></li>
+<li><a href="reference/headers.html">Header Keamanan</a></li>
+<li><a href="reference/events.html">Event Keamanan</a></li>
+<li><a href="reference/exceptions.html">Exception</a></li>
+<li><a href="reference/methods.html">Method Publik</a></li>
+<li><a href="reference/env.html">Variabel Env</a></li>
+</ul></div>
+<div class="nav-group"><div class="nav-group-title">Lainnya</div><ul>
+<li><a href="glossary.html" aria-current="page">Kamus Istilah</a></li>
+<li><a href="versions.html">Versi &amp; Upgrade</a></li>
+<li><a href="security.html">Keamanan &amp; Pelaporan</a></li>
+<li><a href="contributing.html">Kontribusi &amp; Lisensi</a></li>
+</ul></div>
+</nav>
+    </aside>
+    <main id="main" class="site-main">
+      <article class="prose">
+        <p>Kamus istilah tetap untuk tooltip.</p><dl><dt id="signature"><button type="button" class="term" data-term="signature">signature</button></dt><dd>Segel pada amplop; jika isi berubah, segelnya rusak.</dd><dt id="encryption"><button type="button" class="term" data-term="encryption">encryption</button></dt><dd>Mengunci isi agar hanya penerima yang bisa membuka.</dd><dt id="nonce"><button type="button" class="term" data-term="nonce">nonce</button></dt><dd>Kode unik sekali pakai pada tiap pesan.</dd><dt id="timestamp"><button type="button" class="term" data-term="timestamp">timestamp</button></dt><dd>Cap waktu pengiriman; pesan lama ditolak.</dd><dt id="replay"><button type="button" class="term" data-term="replay">replay</button></dt><dd>Orang menyalin pesan sah lalu mengirimnya lagi.</dd><dt id="replay-store"><button type="button" class="term" data-term="replay-store">replay-store</button></dt><dd>Buku catatan tiket (nonce) yang sudah dipakai.</dd><dt id="clock-skew"><button type="button" class="term" data-term="clock-skew">clock-skew</button></dt><dd>Toleransi jika jam dua server tidak persis sama.</dd><dt id="key-id"><button type="button" class="term" data-term="key-id">key-id</button></dt><dd>Rahasia yang dipakai; nomor versi kuncinya.</dd><dt id="kms"><button type="button" class="term" data-term="kms">kms</button></dt><dd>Brankas untuk menyimpan &amp; membungkus kunci.</dd><dt id="key-wrapping"><button type="button" class="term" data-term="key-wrapping">key-wrapping</button></dt><dd>Menyimpan kunci di dalam kotak terkunci lain.</dd><dt id="ed25519"><button type="button" class="term" data-term="ed25519">ed25519</button></dt><dd>Pengirim punya kunci pribadi; penerima hanya kunci publik.</dd><dt id="post-quantum"><button type="button" class="term" data-term="post-quantum">post-quantum</button></dt><dd>Persiapan menghadapi komputer kuantum di masa depan.</dd><dt id="middleware"><button type="button" class="term" data-term="middleware">middleware</button></dt><dd>Lapisan yang memeriksa request sebelum sampai ke aplikasi.</dd><dt id="webhook"><button type="button" class="term" data-term="webhook">webhook</button></dt><dd>Pesan otomatis dari sistem lain ke server Anda.</dd><dt id="load-balancer"><button type="button" class="term" data-term="load-balancer">load-balancer</button></dt><dd>Pembagi lalu lintas ke beberapa server.</dd><dt id="protocol-version"><button type="button" class="term" data-term="protocol-version">protocol-version</button></dt><dd>“Bahasa” wire yang harus sama di kedua sisi (default 4).</dd><dt id="canonical-request"><button type="button" class="term" data-term="canonical-request">canonical-request</button></dt><dd>Bentuk baku method/path/query agar tanda tangan cocok.</dd></dl>
+      </article>
+      <nav class="page-nav" aria-label="Pagination">
+        <a href="reference/env.html">Sebelumnya: Variabel Env</a>
+        <a href="versions.html">Berikutnya: Versi &amp; Upgrade</a>
+      </nav>
+      <p class="footer-note">Apakah halaman ini membantu?
+ <a href="https://github.com/sk8dvlpr/SecurePayload/issues/new?title=Guide feedback: id/glossary">Laporkan masalah</a></p>
+    </main>
+    <aside class="site-toc" aria-label="Di halaman ini">
+      <div class="site-toc__title">Di halaman ini</div>
+      <nav><span>Tidak ada bagian</span></nav>
+    </aside>
+  </div>
+  <div class="search-modal" data-search-modal hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Cari">
+      <div class="search-input-wrap">
+        <input type="search" data-search-input placeholder="Cari…" autocomplete="off" />
+        <button type="button" data-search-close>Esc</button>
+      </div>
+      <p data-search-loading hidden>…</p>
+      <p data-search-empty hidden>Tidak ada hasil</p>
+      <ul class="search-results" data-search-results></ul>
+    </div>
+  </div>
+</body>
+</html>
