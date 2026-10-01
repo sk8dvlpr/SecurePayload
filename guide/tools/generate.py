@@ -1509,6 +1509,9 @@ def write_robots() -> None:
 def self_copy_to_tools() -> None:
     src = Path(__file__).resolve()
     dest = GUIDE / "tools" / "generate.py"
+    # Jangan overwrite file yang sedang dijalankan (bisa gagal di CI/Linux).
+    if src.resolve() == dest.resolve():
+        return
     dest.parent.mkdir(parents=True, exist_ok=True)
     text = src.read_text(encoding="utf-8")
     dest.write_text(text, encoding="utf-8", newline="\n")
