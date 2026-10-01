@@ -124,6 +124,44 @@ final class FileValidation
     }
 
     /**
+     * Sanitasi nama file untuk penyimpanan aman.
+     * - basename (tolak path traversal)
+     * - hapus NUL / kontrol char
+     * - tolak nama reserved Windows (CON, PRN, AUX, NUL, COM1.., LPT1..)
+     * - trim spasi/titik trailing (Windows)
+     * - batasi panjang
+     *
+     * @return string Nama aman, atau 'unnamed' bila hasil kosong setelah sanitasi.
+     */
+    public static function sanitizeFileName(string $name): string
+    {
+        $name = str_replace("\0", "", $name);
+        $name = str_replace(["\\", "/"], "/", $name);
+        $name = basename($name);
+        // Hapus karakter kontrol & RTL override
+        $name = preg_replace("/[\x00-\x1F\x7F\x{202A}-\x{202E}\x{2066}-\x{2069}]/u", "", $name) ?? "";
+        $name = trim($name, " \t.");
+        if ($name === "" || $name === "." || $name === "..") {
+            return "unnamed";
+        }
+        $stem = pathinfo($name, PATHINFO_FILENAME);
+        $reserved = [
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        ];
+        if (in_array(strtoupper($stem), $reserved, true)) {
+            $name = "_" . $name;
+        }
+        if (strlen($name) > 200) {
+            $ext = pathinfo($name, PATHINFO_EXTENSION);
+            $base = substr(pathinfo($name, PATHINFO_FILENAME), 0, 200 - ($ext !== "" ? strlen($ext) + 1 : 0));
+            $name = $ext !== "" ? ($base . "." . $ext) : $base;
+        }
+        return $name !== "" ? $name : "unnamed";
+    }
+
+    /**
      * AAD konstan untuk secretstream, diikat ke versi protokol.
      */
     public static function streamAAD(string $version): string

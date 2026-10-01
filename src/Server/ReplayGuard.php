@@ -49,16 +49,19 @@ final class ReplayGuard
             return;
         }
 
+        if ($this->config->isRequireReplayStore()) {
+            throw new SecurePayloadException(
+                'requireReplayStore aktif tetapi replayStore tidak dipasang — file-based store tidak diizinkan',
+                SecurePayloadException::SERVER_ERROR
+            );
+        }
+
         // Fallback file-based replay protection (dengan locking untuk mencegah race condition)
         $dir = sys_get_temp_dir();
         $f = $dir . DIRECTORY_SEPARATOR . $cacheKey;
 
         // Kita menggunakan file sebagai flag. Jika file ada dan umur < TTL, maka replay.
-        // Race condition mitigation: Gunakan 'x' (create only) atau lock.
-
-        // Strategi Sederhana dengan @touch + filemtime check
-        // Perhatian: Ini tidak atomic sempurna di semua OS tanpa lock, tapi cukup untuk case moderat.
-        // Untuk produksi high-concurrency, WAJIB gunakan Redis/Memcached via $replayStore.
+        // Fail-closed: kegagalan fopen/flock → SERVER_ERROR (bukan lewati proteksi).
 
         if (file_exists($f)) {
             $mtime = filemtime($f);
@@ -69,35 +72,48 @@ final class ReplayGuard
             }
         }
 
-        // Update timestamp file (atau buat baru)
-        // Menggunakan flock untuk memastikan tidak ada dua proses menulis bersamaan
-        $fp = fopen($f, 'c+'); // c+ tidak truncate, open buat read/write
-        if ($fp) {
-            if (flock($fp, LOCK_EX)) { // Exclusive Lock
-                // Cek lagi setelah lock didapat (double-checked locking)
-                $stat = fstat($fp);
-                $age = time() - $stat['mtime'];
-                // Jika file sudah ada isinya/ukurannya 0 tapi mtime baru saja, reject?
-                // Di sini kita asumsikan keberadaan file + mtime baru = key sudah terpakai
+        $fp = fopen($f, 'c+');
+        if ($fp === false) {
+            throw new SecurePayloadException(
+                'Gagal membuka file nonce replay (fopen gagal) — fail-closed',
+                SecurePayloadException::SERVER_ERROR,
+                ['cacheKey' => $cacheKey]
+            );
+        }
 
-                // Jika baru saja disentuh oleh proses lain dalam durasi memory TTL
-                if ($stat['size'] > 0 && $age < $memoryTtl) {
-                    flock($fp, LOCK_UN);
-                    fclose($fp);
-                    $this->config->emitEvent(SecurePayload::EVENT_REPLAY_DETECTED, ['clientId' => $cid, 'keyId' => $kid, 'source' => 'file_locked']);
-                    throw new SecurePayloadException('Replay detected (Locked)', SecurePayloadException::UNAUTHORIZED);
-                }
-
-                // Tandai terpakai
-                ftruncate($fp, 0);
-                fwrite($fp, "1"); // Tulis byte agar size > 0
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
+        if (!flock($fp, LOCK_EX)) {
             fclose($fp);
-        } else {
-            // Fallback jika gagal open file
-            @touch($f);
+            throw new SecurePayloadException(
+                'Gagal mengunci file nonce replay (flock gagal) — fail-closed',
+                SecurePayloadException::SERVER_ERROR,
+                ['cacheKey' => $cacheKey]
+            );
+        }
+
+        try {
+            // Double-checked locking setelah exclusive lock
+            $stat = fstat($fp);
+            if ($stat === false) {
+                throw new SecurePayloadException(
+                    'Gagal membaca status file nonce replay — fail-closed',
+                    SecurePayloadException::SERVER_ERROR
+                );
+            }
+            $age = time() - (int) $stat['mtime'];
+
+            if ($stat['size'] > 0 && $age < $memoryTtl) {
+                $this->config->emitEvent(SecurePayload::EVENT_REPLAY_DETECTED, ['clientId' => $cid, 'keyId' => $kid, 'source' => 'file_locked']);
+                throw new SecurePayloadException('Replay detected (Locked)', SecurePayloadException::UNAUTHORIZED);
+            }
+
+            ftruncate($fp, 0);
+            fwrite($fp, '1');
+            fflush($fp);
+            // Pastikan permission ketat pada file nonce di /tmp bersama
+            @chmod($f, 0600);
+        } finally {
+            flock($fp, LOCK_UN);
+            fclose($fp);
         }
     }
 
@@ -117,10 +133,20 @@ final class ReplayGuard
             return;
         }
 
+        // Batasi jumlah file yang diproses per GC untuk mencegah spike I/O.
+        if (count($files) > 5000) {
+            $files = array_slice($files, 0, 5000);
+        }
+
         $cutoff = time() - ($this->config->getReplayTtl() + $this->config->getClockSkew());
 
         foreach ($files as $file) {
             if (!is_file($file)) {
+                continue;
+            }
+            // Tolak symlink di shared temp
+            if (is_link($file)) {
+                @unlink($file);
                 continue;
             }
             $mtime = @filemtime($file);

@@ -78,15 +78,11 @@ final class EnvKeyProviderTest extends TestCase
         $this->clearEnv('SECUREPAYLOAD_CLIENT3_KEY3_AEAD_KEY_B64');
     }
 
-    public function testLoad_SpecialCharsInClientId_AreSanitized(): void
+    public function testLoad_SpecialCharsInClientId_AreRejected(): void
     {
-        $this->setEnv('SECUREPAYLOAD_CLIENT_01_KEY_01_HMAC_SECRET', 'sanitized-hmac');
-        
         $provider = new EnvKeyProvider();
-        $keys = $provider->load('client-01', 'key-01');
-        
-        $this->assertSame('sanitized-hmac', $keys['hmacSecret']);
-        $this->clearEnv('SECUREPAYLOAD_CLIENT_01_KEY_01_HMAC_SECRET');
+        $this->expectException(\SecurePayload\Exceptions\SecurePayloadException::class);
+        $provider->load('client-01', 'key-01');
     }
 
     public function testLoad_MissingSpecificKey_ReturnsNull_NotFallback(): void
@@ -95,7 +91,7 @@ final class EnvKeyProviderTest extends TestCase
         $this->setEnv('SECURE_AEAD_KEY_B64', 'global-aead-should-not-be-used');
 
         $provider = new EnvKeyProvider();
-        $result = $provider->load('nonexistent-client', 'nonexistent-key');
+        $result = $provider->load('nonexistent_client', 'nonexistent_key');
 
         $this->assertNull($result['hmacSecret'],
             'SEC-01: EnvKeyProvider tidak boleh fallback ke SECURE_HMAC_SECRET global'

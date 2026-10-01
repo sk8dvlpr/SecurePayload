@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `sk8dvlpr/securepayload` is a framework-agnostic PHP 8.0+ library for securing S2S / client-server HTTP requests with HMAC-SHA256 or Ed25519 signing, XChaCha20-Poly1305 AEAD encryption, and anti-replay protection. Distributed via Packagist; no application/runtime — it's a library consumed by other apps.
 
-**Current release:** 3.1.0 | **Protocol version:** `4` (`SecurePayload::DEFAULT_VERSION`)
+**Current release:** 3.2.1 | **Protocol version:** `4` (`SecurePayload::DEFAULT_VERSION`)
 
 Note: source comments, docblocks, and exception messages are written in **Indonesian**. Match that language when editing existing code so the style stays consistent.
 

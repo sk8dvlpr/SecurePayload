@@ -221,7 +221,21 @@ final class KeyManager
 
     private function qValue(string $s): string
     {
-        return "'" . addslashes($s) . "'";
+        return self::sqlQuote($s);
+    }
+
+    /**
+     * Escape string literal SQL generik (MySQL-compatible) tanpa addslashes.
+     * Doubling quote + escape backslash/NULL — aman untuk charset multi-byte.
+     */
+    public static function sqlQuote(string $s): string
+    {
+        $escaped = str_replace(
+            ["\\", "\0", "\n", "\r", "'", "\x1a"],
+            ['\\\\', '\\0', '\\n', '\\r', "\\'", '\\Z'],
+            $s
+        );
+        return "'" . $escaped . "'";
     }
 }
 
@@ -251,7 +265,7 @@ final class GeneratedKeyResult
             'key_id' => $this->keyId,
             'hmac_secret' => $this->hmacSecret,
             // Jika wrapped tersedia, aead_key_b64 sebaiknya NULL di database agar aman
-            // Tapi kita return semua info d sini untuk config Client side.
+            // Tapi kita return semua info di sini untuk config Client side.
             'aead_key_b64' => $this->aeadKeyB64,
             'wrapped_b64' => $this->wrappedKeyB64,
             'kek_id' => $this->kekId,
@@ -336,8 +350,7 @@ final class GeneratedKeyResult
 
     private function q(string $s): string
     {
-        // Simple escape for generated SQL output
-        return "'" . addslashes($s) . "'";
+        return KeyManager::sqlQuote($s);
     }
 
     /**
@@ -394,7 +407,7 @@ final class KeyRotationResult
 
     private function q(string $s): string
     {
-        return "'" . addslashes($s) . "'";
+        return KeyManager::sqlQuote($s);
     }
 
     /**

@@ -151,6 +151,7 @@ final class SecurePayload
      *   aeadKeyB64?: string|null,
      *   keyLoader?: callable|null,
      *   replayStore?: callable|null,
+     *   requireReplayStore?: bool,
      *   replayTtl?: int,
      *   clockSkew?: int,
      *   bindHeaders?: list<string>,
@@ -324,6 +325,7 @@ final class SecurePayload
      * Verifikasi Payload File di Sisi Server.
      *
      * @param array<string,mixed> $constraints Opsi konfigurasi pembatasan file.
+     * @param array|string        $query       Query dari request server (jangan dari header klien).
      *
      * @return array{
      *   ok: bool,
@@ -333,7 +335,7 @@ final class SecurePayload
      *   status?: int
      * }
      */
-    public function verifyFilePayload(array $headers, string $rawBody, string $method, string $path, array $constraints = []): array
+    public function verifyFilePayload(array $headers, string $rawBody, string $method, string $path, array $constraints = [], $query = []): array
     {
         return $this->filePayloadService->verifyFilePayload(
             $headers,
@@ -341,7 +343,8 @@ final class SecurePayload
             $method,
             $path,
             $constraints,
-            fn (array $h, string $b, string $m, string $p): array => $this->verifySimple($h, $b, $m, $p)
+            $query,
+            fn (array $h, string $b, string $m, string $p, $q): array => $this->verify($h, $b, $m, $p, $q)
         );
     }
 

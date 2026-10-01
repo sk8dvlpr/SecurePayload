@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['8.0', '8.1', '8.2', '8.3']
+        php: ['8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Setup PHP
@@ -20,6 +22,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: sodium, curl, json, mbstring
           coverage: none
+          ini-values: error_reporting=-1
       - name: Validate composer.json
         run: composer validate --no-check-publish
       - name: Sync composer.lock
@@ -32,6 +35,9 @@ jobs:
         run: vendor/bin/phpstan analyse -c phpstan.neon
       - name: Run tests
         run: vendor/bin/phpunit
+        env:
+          # Surface PHP 8.5 deprecations as failures when available
+          PHPUNIT_DEPRECATIONS: ${{ matrix.php == '8.5' && '1' || '0' }}
 
   packages:
     runs-on: ubuntu-latest

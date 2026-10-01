@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace SecurePayload\ReplayStore;
 
+use InvalidArgumentException;
 use Psr\SimpleCache\CacheInterface;
 
 /**
@@ -11,7 +12,7 @@ use Psr\SimpleCache\CacheInterface;
  * Membungkus implementasi `Psr\SimpleCache\CacheInterface` apa pun menjadi
  * callable yang cocok dengan opsi `replayStore` SecurePayload:
  *
- *     $store  = new Psr16ReplayStore($psr16cache);
+ *     $store  = new Psr16ReplayStore($psr16cache, true); // wajib atomic add()
  *     $server = new SecurePayload(['mode' => 'both', 'replayStore' => $store, ...]);
  *
  * Kontrak callable: `fn(string $cacheKey, int $ttl): bool` — mengembalikan
@@ -29,11 +30,9 @@ use Psr\SimpleCache\CacheInterface;
  *     tiba bersamaan dijamin: satu menang, sisanya ditolak.
  *
  *  2. **Jalur best-effort** — PSR-16 murni (`has()` lalu `set()`). Praktis untuk
- *     mayoritas kasus, NAMUN ada jendela balapan sangat kecil: dua request nonce
- *     sama yang tiba nyaris bersamaan bisa sama-sama melihat `has() === false`
- *     dan lolos. Untuk jaminan ketat di lingkungan high-concurrency, pakai store
- *     dengan primitif atomik native (Redis `SET key val NX EX`, atau Memcached
- *     `add()`) — lihat contoh di `examples/`.
+ *     mayoritas kasus, NAMUN ada jendela balapan sangat kecil. Untuk produksi
+ *     high-concurrency, set `$requireAtomic = true` (gagal saat construct bila
+ *     `add()` tidak tersedia) atau pakai Redis `SET NX EX` — lihat `examples/`.
  *
  * Implementasi PSR-16 yang dipakai HARUS menghormati TTL agar key replay
  * kedaluwarsa otomatis (mencegah penumpukan key tak terbatas).
@@ -45,10 +44,15 @@ final class Psr16ReplayStore
     /** @var bool Apakah cache yang dibungkus menyediakan add() atomik. */
     private bool $hasAtomicAdd;
 
-    public function __construct(CacheInterface $cache)
+    public function __construct(CacheInterface $cache, bool $requireAtomic = false)
     {
         $this->cache = $cache;
         $this->hasAtomicAdd = is_callable([$cache, 'add']);
+        if ($requireAtomic && !$this->hasAtomicAdd) {
+            throw new InvalidArgumentException(
+                'Psr16ReplayStore requireAtomic=true tetapi cache tidak mengekspos add() atomik'
+            );
+        }
     }
 
     /**

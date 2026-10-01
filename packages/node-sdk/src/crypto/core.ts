@@ -1,4 +1,4 @@
-import { createHash, createHmac, hkdfSync } from 'node:crypto';
+import { createHash, createHmac, hkdfSync, timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
 
 export const HMAC_ALG = 'HMAC-SHA256';
 export const ED25519_ALG = 'ED25519';
@@ -15,13 +15,21 @@ export function normalizePath(path: string): string {
   return prefixed.length > 1 ? prefixed.replace(/\/+$/, '') : prefixed;
 }
 
+/**
+ * RFC 3986 percent-encoding (PHP rawurlencode / Go QueryEscape + '+' -> '%20').
+ * encodeURIComponent leaves !*\'() unescaped — not byte-exact with PHP.
+ */
+export function rawURLEncode(s: string): string {
+  return encodeURIComponent(s).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
 export function canonicalQuery(q: Record<string, unknown>): string {
   const keys = Object.keys(q).sort();
   return keys
     .map((k) => {
       const v = q[k];
       const value = Array.isArray(v) ? v.map(String).join(',') : String(v ?? '');
-      return `${encodeURIComponent(k)}=${encodeURIComponent(value)}`.replace(/%20/g, '%20');
+      return `${rawURLEncode(k)}=${rawURLEncode(value)}`;
     })
     .join('&');
 }
@@ -68,6 +76,17 @@ export function deriveSubkey(master: Buffer, purpose: string, version: string, e
 
 export function signHmac(msg: string, key: Buffer): string {
   return createHmac('sha256', key).update(msg).digest('base64');
+}
+
+/** Constant-time buffer compare; length mismatch => false. */
+export function timingSafeEqualBuf(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) return false;
+  return cryptoTimingSafeEqual(a, b);
+}
+
+/** Constant-time UTF-8 string compare. */
+export function timingSafeEqualString(a: string, b: string): boolean {
+  return timingSafeEqualBuf(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
 export function safeB64Decode(v: string): Buffer | null {

@@ -1,58 +1,32 @@
 # Changelog
 
 ## [Unreleased]
-### Added
-- **Milestone M6 — Dashboard admin MVP (`docs/DASHBOARD.md`)**:
-  - `src/Observability/JsonlSecurityEventExporter.php`: persistensi JSONL
-    append-only untuk `onSecurityEvent` — satu event = satu baris
-    `{"ts","event","ctx"}`; append atomik (`flock LOCK_EX`), rotasi by-size
-    opsional ke `<path>.N` (`maxSizeBytes`, `maxFiles` default 3), clock
-    injectable; semantik EventEmitter: gagal I/O tidak pernah throw,
-    tersedia via `getLastError()`.
-  - Viewer read-only `examples/dashboard/index.php` (tanpa framework/JS):
-    jumlah per tipe event, jumlah per client_id dari ctx, N event terakhir
-    (default 100), panel umur KEK (hanya nama dari env `SECURE_KEKS` +
-    `<id>_CREATED_AT` — nilai secret tidak pernah dirender). Semua output
-    di-escape (`htmlspecialchars`); path log HANYA dari env `SP_EVENT_LOG`
-    (bukan query param); metode selain GET/HEAD ditolak; tail-read dibatasi
-    8 MiB. Placeholder HTTP basic-auth + warning wajib-auth di belakang
-    reverse proxy.
-  - Tests: `tests/Unit/JsonlSecurityEventExporterTest.php` (11 test).
-  - Wire protocol v3/v4 tidak berubah (murni observability + contoh).
 
-- **Milestone M1 — Watermark forensik `retrieveStream()` (plan §5.4)**:
-  - Opsi `beforeStream` di `SecureFileStorage::retrieveStream($m, $sink, $opts)`:
-    hook `callable(string $plain, FileManifest $m, array $ctx): string` menerima
-    plaintext penuh lalu mengembalikan plaintext terwatermark (`$ctx = ['file_id', 'requester']`,
-    konteks peminta via opsi `requester`). Library tetap PDF-agnostic.
-  - Fail-closed: hook jalan SEBELUM chunk pertama — exception dipropagasi sebagai
-    SERVER_ERROR (previous ter-chain) setelah event `file_watermark_failed`;
-    return non-string / beforeStream non-callable / requester non-array → BAD_REQUEST;
-    NOL byte body terkirim saat gagal. Plaintext kosong tetap memanggil hook.
-  - Event baru: `EVENT_FILE_WATERMARKED` (`file_watermarked`, konteks `file_id`)
-    dan `EVENT_FILE_WATERMARK_FAILED` (`file_watermark_failed`, konteks `file_id`);
-    dikenali di PrometheusSecurityExporter + OpenTelemetrySecurityExporter.
-  - `composer suggest += mpdf/mpdf`; docs: FILE_STORAGE.md (section Watermark
-    Forensik), SECURE_DELIVERY.md (contoh nyata), example endpoint (SP_WATERMARK=1).
-  - `retrieve()` tidak di-hook pada v1 (restore/arsip internal, bukan jalur distribusi).
-
-- **Milestone 5 — Compression, payloadSchema, Idempotency (opt-in penuh)**:
-  - Kompresi payload client (D10): `src/Compression/PayloadCompressor.php`
-    - Opsi konstruktor `compress => true` (default **false**); gzip/brotli (fallback otomatis ke gzip bila ekstensi brotli tidak ada), skip otomatis body < 1024 byte atau rasio hasil ≥ 95% (`identity`).
-    - Header `X-Payload-Encoding: gzip|br|identity` selalu eksplisit saat fitur aktif; digest & HMAC dihitung atas **byte terkompresi**.
-    - Server mendekompresi HANYA setelah seluruh verifikasi integritas (digest/HMAC/AEAD) lolos; guard decompression-bomb streaming 8 MiB (hasil > batas → 422); encoding tak dikenal → 400 fail-closed.
-  - Validasi skema payload server (D11): `src/Protocol/PayloadSchemaValidator.php`
-    - Opsi konstruktor `payloadSchema` (array non-kosong; subset JSON Schema: type/properties/required/items/enum/minimum/maximum/minLength/maxLength/minItems/maxItems/pattern/additionalProperties + maxDepth 16).
-    - Gagal validasi → event `payload_schema_invalid` + status 422 fail-closed. Tanpa `payloadSchema`, perilaku existing dipertahankan.
-  - Store idempotensi (D12): `src/Idempotency/{IdempotencyStoreInterface,ArrayIdempotencyStore,Psr16IdempotencyStore}.php`
-    - Terpisah dari anti-replay dan TIDAK digabung ke RequestVerifier; Psr16 adapter tanpa klaim atomicity.
+## [3.2.1] - 2026-10-01
+### Security
+- **Auth-then-commit replay:** `RequestVerifier` commits nonce only after successful AEAD/signature verification (prevents unauthenticated nonce burn / store pollution).
+- **ReplayGuard fail-closed:** `fopen`/`flock` failures throw `SERVER_ERROR` instead of silently accepting; nonce files `chmod 0600`; symlink GC cleanup; GC batch cap.
+- **`requireReplayStore` option:** fail closed at construct when set without a `replayStore` (multi-server safe-by-default opt-in).
+- **`verifyFilePayload($…, $constraints, $query)`:** passes server-derived query into `verify()` (fixes empty-query signature mismatch).
+- **File `max_size`:** reject oversized base64 *before* decode; always enforce actual decoded length.
+- **Filename sanitization:** `FileValidation::sanitizeFileName()` (NUL, reserved Windows names, RTL, path segments) on payload + stream paths.
+- **EnvKeyProvider:** reject `clientId`/`keyId` outside `[A-Za-z0-9_]` (closes `a-b`/`a_b` env collision).
+- **KeyManager SQL export:** replace `addslashes()` with charset-safe `KeyManager::sqlQuote()`.
+- **CurlTransport:** timeouts, `CURLOPT_PROTOCOLS` http/https only, optional `requireHttps`; remove deprecated `curl_close` (also VaultKms / examples).
+- **CLI `keys:generate` / `keys:rotate`:** secrets masked by default; `--output-file` (0600) or `--show-secrets`.
+- **Prometheus `escapeLabel`:** strip CR/NUL to reduce label injection.
+- **Psr16ReplayStore:** optional `$requireAtomic` constructor flag.
+- **Node/Go SDK (WS-H follow-up):** `rawURLEncode` parity with PHP `rawurlencode` (`!*'()`); Node `timingSafeEqual` for nonce/digest/HMAC; auth-then-commit replay in Node+Go; fixture case for special query chars; Node package description → v4.
+- `SECURITY.md`, Dependabot, CI PHP **8.4/8.5**, `.gitattributes` dist exclusions, AGENTS/CLAUDE → **3.2.1**.
+- Security tests: `tests/Security/MegaAuditRemediationTest.php`.
 
 ### Notes
-- Wire protocol v3/v4 **tidak berubah**: tanpa opsi baru di atas, tidak ada header tambahan dan byte wire identik (Conformance fixtures tidak diregenerasi).
-- Sinkronisasi wajib saat mengaktifkan kompresi: client DAN server harus menjalankan versi ≥ Milestone 5.
+- Wire protocol v3/v4 **tidak berubah**.
+- EnvKeyProvider kini menolak `clientId`/`keyId` di luar `[A-Za-z0-9_]` (mis. hyphen) — sengaja untuk menutup collision env; sesuaikan id jika masih memakai karakter lain.
+- Opt-in baru (default tetap backward compatible): `requireReplayStore`, CurlTransport `requireHttps`, `Psr16ReplayStore` flag `$requireAtomic`.
 
 ## [3.2.0] - 2026-08-26
-Rilis yang sama dengan [Unreleased] di atas (Milestone M1 watermark forensik, M5 compression/payloadSchema/idempotency, M6 dashboard admin, key lifecycle + destroy, secure file storage & delivery, observability JSONL, CLI doctor, SDK Python/RN/Kong/Envoy). Tidak ada perubahan wire protocol v4; sepenuhnya backward compatible terhadap 3.1.x.
+Milestone M1 watermark forensik, M5 compression/payloadSchema/idempotency, M6 dashboard admin, key lifecycle + destroy, secure file storage & delivery, observability JSONL, CLI doctor, SDK Python/RN/Kong/Envoy. Tidak ada perubahan wire protocol v4; sepenuhnya backward compatible terhadap 3.1.x.
 
 ## [3.1.0] - 2026-07-10
 ### Added

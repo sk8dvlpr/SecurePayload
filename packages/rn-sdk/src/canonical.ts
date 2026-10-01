@@ -21,6 +21,10 @@ export function normalizePath(path: string): string {
   return prefixed.length > 1 ? prefixed.replace(/\/+$/, '') : prefixed;
 }
 
+export function rawURLEncode(s: string): string {
+  return encodeURIComponent(s).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
 export function canonicalQuery(q: Record<string, unknown>): string {
   // Object.keys().sort() memakai urutan ordinal UTF-16 (deterministik lintas engine,
   // termasuk Hermes yang Intl-nya terbatas).
@@ -29,7 +33,7 @@ export function canonicalQuery(q: Record<string, unknown>): string {
     .map((k) => {
       const v = q[k];
       const value = Array.isArray(v) ? v.map(String).join(',') : String(v ?? '');
-      return `${encodeURIComponent(k)}=${encodeURIComponent(value)}`;
+      return `${rawURLEncode(k)}=${rawURLEncode(value)}`;
     })
     .join('&');
 }

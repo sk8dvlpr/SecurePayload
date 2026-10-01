@@ -24,15 +24,33 @@ final class CliCommandsTest extends TestCase
         $this->assertStringContainsString('"ok": true', $tester->getDisplay());
     }
 
-    public function testGenerateKeysOutputsSql(): void
+    public function testGenerateKeysMasksSecretsByDefault(): void
     {
         $app = new Application();
         $command = $app->find('keys:generate');
         $tester = new CommandTester($command);
 
         $exitCode = $tester->execute([
-            'clientId' => 'cli-test',
-            'keyId' => 'key-1',
+            'clientId' => 'cli_test',
+            'keyId' => 'key_1',
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $display = $tester->getDisplay();
+        $this->assertStringNotContainsString('INSERT INTO', $display);
+        $this->assertStringContainsString('--output-file', $display);
+    }
+
+    public function testGenerateKeysShowSecretsOutputsSql(): void
+    {
+        $app = new Application();
+        $command = $app->find('keys:generate');
+        $tester = new CommandTester($command);
+
+        $exitCode = $tester->execute([
+            'clientId' => 'cli_test',
+            'keyId' => 'key_1',
+            '--show-secrets' => true,
         ]);
 
         $this->assertSame(0, $exitCode);

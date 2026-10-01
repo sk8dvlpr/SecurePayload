@@ -155,24 +155,32 @@ final class DowngradeAndReplayTest extends TestCase
         $r1 = $server->verify($headers, $body, 'POST', '/x/y', []);
         $this->assertTrue($r1['ok'], $r1['error'] ?? '');
 
-        // Replay: nonce sama, hanya timestamp dinaikkan (tidak terotentikasi di mode aead).
+        // Mutasi timestamp: AAD mengikat ts → gagal dekripsi (sebelum replay commit).
         $mutated = $headers;
         $mutated['X-Timestamp'] = (string) ((int) $headers['X-Timestamp'] + 1);
 
         $r2 = $server->verify($mutated, $body, 'POST', '/x/y', []);
-        $this->assertFalse($r2['ok'], 'Replay dengan timestamp dimutasi seharusnya diblokir.');
-        $this->assertStringContainsString('Replay detected', $r2['error']);
+        $this->assertFalse($r2['ok'], 'Request dengan timestamp dimutasi seharusnya diblokir.');
+        $this->assertTrue(
+            str_contains((string) ($r2['error'] ?? ''), 'dekripsi')
+            || str_contains((string) ($r2['error'] ?? ''), 'Replay detected'),
+            $r2['error'] ?? ''
+        );
+
+        // Replay bit-identik (auth-then-commit): harus kena Replay detected.
+        $r3 = $server->verify($headers, $body, 'POST', '/x/y', []);
+        $this->assertFalse($r3['ok']);
+        $this->assertStringContainsString('Replay detected', (string) ($r3['error'] ?? ''));
     }
 
     public function testReplayKeyDoesNotDependOnTimestamp_CustomStore(): void
     {
-        // Bukti deterministik bahwa kunci replay tidak menyertakan timestamp:
-        // dua request dengan nonce sama namun timestamp berbeda harus menghasilkan
-        // cacheKey yang IDENTIK saat diserahkan ke replayStore kustom.
+        // Setelah auth-then-commit, mutasi timestamp gagal AAD sebelum store.
+        // Buktikan stabilitas kunci via replay bit-identik (nonce sama → key sama).
         $seenKeys = [];
         $store = function (string $key, int $ttl) use (&$seenKeys): bool {
             $seenKeys[] = $key;
-            return true; // selalu anggap baru; kita hanya memeriksa key-nya.
+            return count($seenKeys) === 1; // pertama baru, kedua replay
         };
 
         $client = new SecurePayload([
@@ -185,14 +193,26 @@ final class DowngradeAndReplayTest extends TestCase
 
         $server = $this->makeAeadServer($store);
 
-        $server->verify($headers, $body, 'POST', '/x/y', []);
+        $r1 = $server->verify($headers, $body, 'POST', '/x/y', []);
+        $this->assertTrue($r1['ok'], $r1['error'] ?? '');
 
-        $mutated = $headers;
-        $mutated['X-Timestamp'] = (string) ((int) $headers['X-Timestamp'] + 5);
-        $server->verify($mutated, $body, 'POST', '/x/y', []);
+        $r2 = $server->verify($headers, $body, 'POST', '/x/y', []);
+        $this->assertFalse($r2['ok']);
+        $this->assertStringContainsString('Replay detected', (string) ($r2['error'] ?? ''));
 
         $this->assertCount(2, $seenKeys);
-        $this->assertSame($seenKeys[0], $seenKeys[1], 'Kunci replay berubah saat timestamp berubah (F2 belum tertutup).');
+        $this->assertSame($seenKeys[0], $seenKeys[1], 'Kunci replay harus sama untuk nonce yang sama.');
+
+        // Formula eksplisit: timestamp tidak masuk ke hash kunci.
+        $nonce = $headers['X-Nonce'] ?? $headers['X-Nonce'] ?? '';
+        foreach ($headers as $k => $v) {
+            if (strtoupper($k) === 'X-NONCE') {
+                $nonce = $v;
+                break;
+            }
+        }
+        $expected = 'sp_' . substr(hash('sha256', "c1|k1|$nonce"), 0, 48);
+        $this->assertSame($expected, $seenKeys[0]);
     }
 
     public function testCustomStoreReceivesMemoryTtlCoveringFullWindow(): void

@@ -158,7 +158,7 @@ final class VaultKms implements Kms
         $resp = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err = $resp === false ? curl_error($ch) : null;
-        curl_close($ch);
+        // curl_close() deprecated di PHP 8.5 — CurlHandle dibebaskan otomatis.
         if ($resp === false) {
             throw new RuntimeException('Vault transport error: ' . (string) $err);
         }

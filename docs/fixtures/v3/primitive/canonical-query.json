@@ -22,6 +22,15 @@
                 ]
             },
             "expected": "arr=x%2Cy&key=a%20b"
+        },
+        {
+            "input": {
+                "a!": "x",
+                "b*": "y",
+                "c'": "z",
+                "d(": ")"
+            },
+            "expected": "a%21=x&b%2A=y&c%27=z&d%28=%29"
         }
     ]
 }

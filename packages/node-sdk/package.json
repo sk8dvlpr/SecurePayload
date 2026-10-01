@@ -1,7 +1,7 @@
 {
   "name": "@sk8dvlpr/securepayload-node",
   "version": "0.1.0",
-  "description": "Node.js/TypeScript SDK for SecurePayload protocol v3",
+  "description": "Node.js/TypeScript SDK for SecurePayload protocol v4 (v3 fixtures supported)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

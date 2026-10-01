@@ -50,13 +50,6 @@ func (c *Client) VerifyOrThrow(headers map[string]string, rawBody, method, path 
 	if ts > now+int64(c.opts.ClockSkew) || ts < now-int64(c.opts.ReplayTTL+c.opts.ClockSkew) {
 		return nil, newError(StatusUnauthorized, "Timestamp di luar batas wajar (kadaluarsa atau jam salah)", nil)
 	}
-	if c.opts.ReplayStore != nil {
-		sum := sha256ReplayKey(cid, kid, nonceB64)
-		if !c.opts.ReplayStore(sum, c.opts.ReplayTTL+c.opts.ClockSkew) {
-			return nil, newError(StatusUnauthorized, "Replay detected", nil)
-		}
-	}
-
 	m := strings.ToUpper(method)
 	p := spcrypto.NormalizePath(path)
 	if p == "" {
@@ -102,12 +95,15 @@ func (c *Client) VerifyOrThrow(headers map[string]string, rawBody, method, path 
 		}
 		bodyForSign = string(plain)
 		if c.opts.Mode == ModeAEAD {
+			if err := c.commitReplay(cid, kid, nonceB64); err != nil {
+				return nil, err
+			}
 			var j interface{}
 			_ = json.Unmarshal(plain, &j)
 			return &VerifyData{Mode: "AEAD", BodyPlain: bodyForSign, JSON: j}, nil
 		}
 		calc := "sha256=" + spcrypto.BodyDigestB64(bodyForSign)
-		if H["X-BODY-DIGEST"] != calc {
+		if subtle.ConstantTimeCompare([]byte(H["X-BODY-DIGEST"]), []byte(calc)) != 1 {
 			return nil, newError(StatusUnprocessable, "Integritas Body Digest gagal", nil)
 		}
 	}
@@ -157,12 +153,27 @@ func (c *Client) VerifyOrThrow(headers map[string]string, rawBody, method, path 
 		if c.opts.Mode == ModeBoth {
 			mode = "BOTH"
 		}
+		if err := c.commitReplay(cid, kid, nonceB64); err != nil {
+			return nil, err
+		}
 		var j interface{}
 		_ = json.Unmarshal([]byte(bodyForSign), &j)
 		return &VerifyData{Mode: mode, BodyPlain: bodyForSign, JSON: j}, nil
 	}
 
 	return nil, newError(StatusBadRequest, "Tidak ditemukan header keamanan yang valid", nil)
+}
+
+
+func (c *Client) commitReplay(cid, kid, nonceB64 string) error {
+	if c.opts.ReplayStore == nil {
+		return nil
+	}
+	sum := sha256ReplayKey(cid, kid, nonceB64)
+	if !c.opts.ReplayStore(sum, c.opts.ReplayTTL+c.opts.ClockSkew) {
+		return newError(StatusUnauthorized, "Replay detected", nil)
+	}
+	return nil
 }
 
 func sha256ReplayKey(clientID, keyID, nonceB64 string) string {

@@ -61,4 +61,4 @@ if (curl_errno($ch)) {
     echo "Response: $response\n";
 }
 
-curl_close($ch);
+// curl_close() deprecated di PHP 8.5 — CurlHandle dibebaskan otomatis.

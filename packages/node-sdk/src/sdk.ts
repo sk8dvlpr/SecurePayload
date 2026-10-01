@@ -14,6 +14,8 @@ import {
   buildRequestAeadAad,
   buildResponseAeadAad,
   canonicalQuery,
+  timingSafeEqualBuf,
+  timingSafeEqualString,
   deriveSubkey,
   hmacMessage,
   normalizePath,
@@ -167,11 +169,6 @@ export class SecurePayloadNode {
     const ts = Number(tsStr);
     const now = this.clock();
     if (ts > now + this.clockSkew || ts < now - (this.replayTtl + this.clockSkew)) throw new SecurePayloadError(UNAUTHORIZED, 'Timestamp di luar batas wajar (kadaluarsa atau jam salah)');
-    if (this.replayStore) {
-      const key = createHash('sha256').update(`${cid}|${kid}|${nonceB64}`).digest('hex');
-      if (!this.replayStore(key, this.replayTtl + this.clockSkew)) throw new SecurePayloadError(UNAUTHORIZED, 'Replay detected');
-    }
-
     const m = method.toUpperCase();
     const p = normalizePath(path || '/');
     const qStr = canonicalQuery(parseQueryInput(query));
@@ -186,17 +183,20 @@ export class SecurePayloadNode {
       const key = deriveSubkey(keyRaw, KDF_PURPOSE_AEAD_REQ, this.version, this.deriveKeys);
       const nonce = aeadNonceFrom(nonceB64, m, p, qStr);
       const nonceHdr = safeB64Decode(H['X-AEAD-NONCE'] ?? '') ?? Buffer.alloc(0);
-      if (!Buffer.from(nonceHdr).equals(Buffer.from(nonce))) throw new SecurePayloadError(UNAUTHORIZED, 'Nonce mismatch (Integritas request invalid)');
+      if (!timingSafeEqualBuf(Buffer.from(nonceHdr), Buffer.from(nonce))) throw new SecurePayloadError(UNAUTHORIZED, 'Nonce mismatch (Integritas request invalid)');
       const ct = safeB64Decode(parsed.__aead_b64) ?? (() => { throw new SecurePayloadError(BAD_REQUEST, 'Format base64 body rusak'); })();
       const aad = buildRequestAeadAad(this.version, tsStr, collectBoundHeaders(headers, this.bindHeaders));
       const aead = new XChaCha20Poly1305(new Uint8Array(key));
       const plain = aead.open(new Uint8Array(nonce), new Uint8Array(ct), Buffer.from(aad, 'utf8'));
       if (!plain) throw new SecurePayloadError(UNAUTHORIZED, 'Gagal mendekripsi (Kunci salah atau data rusak)');
       bodyForSign = Buffer.from(plain).toString('utf8');
-      if (this.mode === 'aead') return { mode: 'AEAD', bodyPlain: bodyForSign, json: JSON.parse(bodyForSign) };
+      if (this.mode === 'aead') {
+        this.commitReplay(cid, kid, nonceB64);
+        return { mode: 'AEAD', bodyPlain: bodyForSign, json: JSON.parse(bodyForSign) };
+      }
       const dig = H['X-BODY-DIGEST'] ?? '';
       const calc = 'sha256=' + bodyDigestB64(bodyForSign);
-      if (dig !== calc) throw new SecurePayloadError(UNPROCESSABLE, 'Integritas Body Digest gagal');
+      if (!timingSafeEqualString(dig, calc)) throw new SecurePayloadError(UNPROCESSABLE, 'Integritas Body Digest gagal');
     }
 
     if (this.mode === 'hmac' || this.mode === 'both') {
@@ -208,7 +208,7 @@ export class SecurePayloadNode {
       const digVal = dig.startsWith('sha256=') ? dig.slice(7) : '';
       if (!digVal) throw new SecurePayloadError(BAD_REQUEST, 'Format digest salah (harus sha256=...)');
       const calcDig = bodyDigestB64(bodyForSign);
-      if (digVal !== calcDig) throw new SecurePayloadError(UNPROCESSABLE, 'Integritas Body Digest HMAC gagal');
+      if (!timingSafeEqualString(digVal, calcDig)) throw new SecurePayloadError(UNPROCESSABLE, 'Integritas Body Digest HMAC gagal');
       const msg = hmacMessage(this.version, cid, kid, tsStr, nonceB64, m, p, qStr, calcDig);
       if (this.signAlg === 'ed25519') {
         const pub = safeB64Decode(keys.ed25519PublicKeyB64 ?? '') ?? (() => { throw new SecurePayloadError(SERVER_ERROR, 'Public key Ed25519 server tidak valid/tersedia'); })();
@@ -217,8 +217,9 @@ export class SecurePayloadNode {
       } else {
         if (!keys.hmacSecret || keys.hmacSecret.length < 32) throw new SecurePayloadError(SERVER_ERROR, 'Secret Key HMAC tidak ditemukan di server');
         const signKey = deriveSubkey(Buffer.from(keys.hmacSecret, 'utf8'), KDF_PURPOSE_SIGN_REQ, this.version, this.deriveKeys);
-        if (signHmac(msg, signKey) !== sigIn) throw new SecurePayloadError(UNAUTHORIZED, 'Tanda Tangan (Signature) tidak valid');
+        if (!timingSafeEqualString(signHmac(msg, signKey), sigIn)) throw new SecurePayloadError(UNAUTHORIZED, 'Tanda Tangan (Signature) tidak valid');
       }
+      this.commitReplay(cid, kid, nonceB64);
       return { mode: this.mode === 'both' ? 'BOTH' : 'HMAC', bodyPlain: bodyForSign, json: JSON.parse(bodyForSign) };
     }
 
@@ -307,7 +308,7 @@ export class SecurePayloadNode {
       const key = deriveSubkey(raw, KDF_PURPOSE_AEAD_RESP, this.version, this.deriveKeys);
       const nonce = respAeadNonceFrom(respNonceB64, reqNonceB64);
       const nonceHdr = safeB64Decode(H['X-RESP-AEAD-NONCE'] ?? '') ?? Buffer.alloc(0);
-      if (!Buffer.from(nonceHdr).equals(Buffer.from(nonce))) throw new SecurePayloadError(UNAUTHORIZED, 'Nonce response mismatch (integritas invalid)');
+      if (!timingSafeEqualBuf(Buffer.from(nonceHdr), Buffer.from(nonce))) throw new SecurePayloadError(UNAUTHORIZED, 'Nonce response mismatch (integritas invalid)');
       const ct = safeB64Decode(parsed.__aead_b64) ?? (() => { throw new SecurePayloadError(BAD_REQUEST, 'Format base64 body response rusak'); })();
       const aad = buildResponseAeadAad(ver, reqNonceB64, respTs);
       const aead = new XChaCha20Poly1305(new Uint8Array(key));
@@ -326,7 +327,7 @@ export class SecurePayloadNode {
       const digVal = dig.startsWith('sha256=') ? dig.slice(7) : '';
       if (!digVal) throw new SecurePayloadError(BAD_REQUEST, 'Format digest response salah (harus sha256=...)');
       const calc = bodyDigestB64(bodyForSig);
-      if (digVal !== calc) throw new SecurePayloadError(UNPROCESSABLE, 'Integritas Body Digest response gagal');
+      if (!timingSafeEqualString(digVal, calc)) throw new SecurePayloadError(UNPROCESSABLE, 'Integritas Body Digest response gagal');
       const msg = respMessage(this.version, reqNonceB64, respTs, respNonceB64, calc);
       if (this.signAlg === 'ed25519') {
         const pub = safeB64Decode(this.opts.ed25519PublicKeyServerB64 ?? '') ?? (() => { throw new SecurePayloadError(BAD_REQUEST, 'Public key Ed25519 server tidak valid/tersedia di client'); })();
@@ -335,12 +336,19 @@ export class SecurePayloadNode {
       } else {
         if (!this.opts.hmacSecretRaw || this.opts.hmacSecretRaw.length < 32) throw new SecurePayloadError(BAD_REQUEST, 'HMAC secret client tidak valid/tersedia');
         const signKey = deriveSubkey(Buffer.from(this.opts.hmacSecretRaw, 'utf8'), KDF_PURPOSE_SIGN_RESP, this.version, this.deriveKeys);
-        if (signHmac(msg, signKey) !== sigIn) throw new SecurePayloadError(UNAUTHORIZED, 'Tanda Tangan response (HMAC) tidak valid');
+        if (!timingSafeEqualString(signHmac(msg, signKey), sigIn)) throw new SecurePayloadError(UNAUTHORIZED, 'Tanda Tangan response (HMAC) tidak valid');
       }
       return { mode: this.mode === 'both' ? 'BOTH' : 'HMAC', bodyPlain: bodyForSig, json: JSON.parse(bodyForSig) };
     }
 
     throw new SecurePayloadError(BAD_REQUEST, 'Header response tidak lengkap');
+  }
+
+  /** Commit nonce setelah autentikasi sukses (auth-then-commit). */
+  private commitReplay(cid: string, kid: string, nonceB64: string): void {
+    if (!this.replayStore) return;
+    const key = createHash('sha256').update(`${cid}|${kid}|${nonceB64}`).digest('hex');
+    if (!this.replayStore(key, this.replayTtl + this.clockSkew)) throw new SecurePayloadError(UNAUTHORIZED, 'Replay detected');
   }
 
   private resolveKeys(cid: string, kid: string) {

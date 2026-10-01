@@ -40,7 +40,7 @@ final class FilePayloadService
 
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $mime = $finfo->buffer($content) ?: 'application/octet-stream';
-        $name = $customFileName ?: basename($filePath);
+        $name = FileValidation::sanitizeFileName($customFileName ?: basename($filePath));
         $size = strlen($content);
 
         // Gabungkan data body dengan metadata file
@@ -64,8 +64,9 @@ final class FilePayloadService
      * @param string $method    HTTP Method yang diterima server.
      * @param string $path      URL Path yang diterima server.
      * @param array  $constraints Opsi konfigurasi pembatasan file.
-     * @param callable(array<string,string>, string, string, string): array<string,mixed> $verify
-     *        Callback verifikasi dasar (mis. verifySimple).
+     * @param array|string $query Query string / array dari request server (bukan dari header klien).
+     * @param callable(array<string,string>, string, string, string, array|string): array<string,mixed> $verify
+     *        Callback verifikasi dasar (mis. verify).
      *
      * @return array{
      *   ok: bool,
@@ -75,10 +76,10 @@ final class FilePayloadService
      *   status?: int
      * }
      */
-    public function verifyFilePayload(array $headers, string $rawBody, string $method, string $path, array $constraints, callable $verify): array
+    public function verifyFilePayload(array $headers, string $rawBody, string $method, string $path, array $constraints, $query, callable $verify): array
     {
-        // 1. Verifikasi Keamanan Dasar (Signature/Encryption)
-        $res = $verify($headers, $rawBody, $method, $path);
+        // 1. Verifikasi Keamanan Dasar (Signature/Encryption) — query dari server
+        $res = $verify($headers, $rawBody, $method, $path, $query);
         if (($res['ok'] ?? false) === false) {
             return $res + ['file' => null, 'data' => null];
         }
@@ -99,25 +100,25 @@ final class FilePayloadService
         }
 
         // 2. Validasi Metadata File
-        $name = basename((string) ($attachment['name'] ?? 'unknown'));
-        $size = (int) ($attachment['size'] ?? 0);
-        $contentB64 = $attachment['content'] ?? '';
+        $name = FileValidation::sanitizeFileName((string) ($attachment['name'] ?? 'unknown'));
+        $claimedSize = (int) ($attachment['size'] ?? 0);
+        $contentB64 = is_string($attachment['content'] ?? null) ? $attachment['content'] : '';
 
-        // Constraint Defaults
-        $maxSize = $constraints['max_size'] ?? 5 * 1024 * 1024; // 5MB
+        $maxSize = (int) ($constraints['max_size'] ?? 5 * 1024 * 1024); // 5MB
 
-        // Cek Ukuran
-        if ($size > $maxSize) {
+        // Tolak sebelum decode: field size ATAU estimasi base64 melebihi max (anti DoS alokasi).
+        $b64Len = strlen($contentB64);
+        $estimatedDecoded = (int) floor($b64Len * 3 / 4);
+        if ($claimedSize > $maxSize || $estimatedDecoded > $maxSize) {
             return [
                 'ok' => false,
-                'status' => 413, // Payload Too Large
-                'error' => "Ukuran file ($size bytes) melebihi batas ($maxSize bytes)",
+                'status' => 413,
+                'error' => "Ukuran file melebihi batas ($maxSize bytes)",
                 'file' => null,
                 'data' => $data,
             ];
         }
 
-        // Cek Ekstensi (allow/block list dipakai bersama jalur streaming).
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $extErr = FileValidation::fileExtensionError($ext, $constraints);
         if ($extErr !== null) {
@@ -136,8 +137,18 @@ final class FilePayloadService
             ];
         }
 
-        // Double Check Size Integrity
-        if (strlen($decoded) !== $size) {
+        $actualSize = strlen($decoded);
+        if ($actualSize > $maxSize) {
+            return [
+                'ok' => false,
+                'status' => 413,
+                'error' => "Ukuran file ($actualSize bytes) melebihi batas ($maxSize bytes)",
+                'file' => null,
+                'data' => $data,
+            ];
+        }
+
+        if ($actualSize !== $claimedSize) {
             return [
                 'ok' => false,
                 'status' => 400,
@@ -148,8 +159,7 @@ final class FilePayloadService
         }
 
         // 4. Strict MIME Type & Security Verification (Deep Scan) — anti-spoofing.
-        // Sniffing magic-byte konten asli; logika dibagi dengan jalur streaming.
-        $strict = $constraints['strict_mime'] ?? true; // Default TRUE for full security
+        $strict = $constraints['strict_mime'] ?? true;
         $mimeErr = FileValidation::fileMimeError($decoded, $ext, (bool) $strict);
         if ($mimeErr !== null) {
             return ['ok' => false, 'status' => $mimeErr[0], 'error' => $mimeErr[1], 'file' => null, 'data' => $data];
@@ -160,7 +170,7 @@ final class FilePayloadService
             'status' => 200,
             'file' => [
                 'name' => $name,
-                'size' => $size,
+                'size' => $actualSize,
                 'type' => $attachment['type'] ?? 'application/octet-stream',
                 'content_b64' => $contentB64,
                 'content_decoded' => $decoded,

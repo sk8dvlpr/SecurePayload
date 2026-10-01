@@ -1,6 +1,6 @@
 # SecurePayload — Agent Guide
 
-Library: `sk8dvlpr/securepayload` v3.1.0 | Protocol version: `4`
+Library: `sk8dvlpr/securepayload` v3.2.1 | Protocol version: `4`
 
 ## Before Any Code Change
 

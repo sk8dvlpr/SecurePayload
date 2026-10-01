@@ -84,7 +84,7 @@ final class FileStreamService
             } while (!$isLast);
 
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($firstSniff) ?: 'application/octet-stream';
-            $name = basename((string) ($meta['name'] ?? basename($srcPath)));
+            $name = FileValidation::sanitizeFileName((string) ($meta['name'] ?? basename($srcPath)));
 
             return [
                 'v' => $this->config->getVersion(),
@@ -123,7 +123,7 @@ final class FileStreamService
             }
             $expectSize = (int) ($manifest['size'] ?? -1);
             $expectDigest = (string) ($manifest['cipher_digest'] ?? '');
-            $name = basename((string) ($manifest['name'] ?? 'unknown'));
+            $name = FileValidation::sanitizeFileName((string) ($manifest['name'] ?? 'unknown'));
             if ($expectSize < 0 || $expectDigest === '') {
                 return ['ok' => false, 'status' => 400, 'error' => 'Manifest stream tidak lengkap'];
             }

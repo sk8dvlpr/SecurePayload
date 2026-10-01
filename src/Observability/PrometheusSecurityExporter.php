@@ -146,6 +146,8 @@ final class PrometheusSecurityExporter
 
     private static function escapeLabel(string $value): string
     {
+        // Prometheus text format: escape \, \n, ", plus tolak CR/NUL (label injection).
+        $value = str_replace(["\r", "\0"], '', $value);
         return str_replace(['\\', "\n", '"'], ['\\\\', '\\n', '\\"'], $value);
     }
 }

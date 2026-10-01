@@ -60,6 +60,12 @@ final class SecurePayloadConfig
     /** @var callable(string,int): bool|null Fungsi kustom untuk penyimpanan replay cache */
     private $replayStore;
 
+    /**
+     * Jika true, file-based replay store ditolak — wajib inject replayStore
+     * (Redis/Memcached/PSR-16 atomik) untuk multi-server.
+     */
+    private bool $requireReplayStore;
+
     /** @var int Time-to-live untuk replay protection (detik) */
     private int $replayTtl;
 
@@ -124,6 +130,7 @@ final class SecurePayloadConfig
      *   aeadKeyB64?: string|null,
      *   keyLoader?: callable|null,
      *   replayStore?: callable|null,
+     *   requireReplayStore?: bool,
      *   replayTtl?: int,
      *   clockSkew?: int,
      *   bindHeaders?: list<string>,
@@ -168,6 +175,13 @@ final class SecurePayloadConfig
         $this->signAlg = $opts['signAlg'] ?? 'hmac';
         $this->keyLoader = $opts['keyLoader'] ?? null;
         $this->replayStore = $opts['replayStore'] ?? null;
+        $this->requireReplayStore = !empty($opts['requireReplayStore']);
+        if ($this->requireReplayStore && $this->replayStore === null) {
+            throw new SecurePayloadException(
+                'requireReplayStore=true tetapi replayStore tidak dipasang',
+                SecurePayloadException::BAD_REQUEST
+            );
+        }
         $this->replayTtl = isset($opts['replayTtl']) ? (int) $opts['replayTtl'] : 120;
         $this->clockSkew = isset($opts['clockSkew']) ? (int) $opts['clockSkew'] : 60;
 
@@ -380,6 +394,11 @@ final class SecurePayloadConfig
     public function getReplayStore()
     {
         return $this->replayStore;
+    }
+
+    public function isRequireReplayStore(): bool
+    {
+        return $this->requireReplayStore;
     }
 
     public function getReplayTtl(): int

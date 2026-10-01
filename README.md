@@ -328,7 +328,10 @@ $res = $server->verifyFilePayload(
 );
 
 if ($res['ok']) {
-    file_put_contents('/storage/' . $res['file']['name'], $res['file']['content_decoded']);
+    // Gunakan basename/sanitasi — jangan gabungkan path mentah dari klien.
+    // verifyFilePayload sudah memanggil FileValidation::sanitizeFileName().
+    $safeName = basename($res['file']['name']);
+    file_put_contents('/storage/' . $safeName, $res['file']['content_decoded']);
     $extraData = $res['data']; // data non-file dalam payload
 }
 ```

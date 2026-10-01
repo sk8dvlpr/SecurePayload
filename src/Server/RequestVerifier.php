@@ -72,8 +72,9 @@ final class RequestVerifier
             throw new SecurePayloadException('Timestamp di luar batas wajar (kadaluarsa atau jam salah)', SecurePayloadException::UNAUTHORIZED, ['ts' => $ts, 'now' => $now]);
         }
 
-        // 3. Proteksi Replay Attack
-        $this->replayGuard->checkReplay($cid, $kid, $tsStr, $nonceB64);
+        // 3. Replay commit DIPINDAH setelah autentikasi (auth-then-commit).
+        // Commit sebelum verify memungkinkan penyerang tak terotentikasi
+        // membakar nonce yang diintercept / mengotori store (SEC-NEW-01).
 
         // Menyiapkan parameter request kanonik dari input Server (BUKAN dari header X-Canonical-Request)
         $method = strtoupper($method);
@@ -180,6 +181,8 @@ final class RequestVerifier
                 $result['bodyPlain'] = $plain;
                 $result['json'] = json_decode($plain, true);
                 $this->enforcePayloadSchema($result['json'], $cid, $kid);
+                // Commit nonce HANYA setelah autentikasi AEAD sukses.
+                $this->replayGuard->checkReplay($cid, $kid, $tsStr, $nonceB64);
                 return $result;
             }
 
@@ -286,6 +289,8 @@ final class RequestVerifier
             $result['bodyPlain'] = $finalBody;
             $result['json'] = json_decode($finalBody, true);
             $this->enforcePayloadSchema($result['json'], $cid, $kid);
+            // Commit nonce HANYA setelah signature/HMAC (dan AEAD bila both) sukses.
+            $this->replayGuard->checkReplay($cid, $kid, $tsStr, $nonceB64);
             return $result;
         }
 
