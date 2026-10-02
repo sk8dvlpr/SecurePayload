@@ -592,7 +592,7 @@ final class KeyLifecycleManager
             return Canonical::canonicalQuery($query);
         }
         parse_str((string) $query, $qArr);
-        return Canonical::canonicalQuery(is_array($qArr) ? $qArr : []);
+        return Canonical::canonicalQuery($qArr);
     }
 
     /**

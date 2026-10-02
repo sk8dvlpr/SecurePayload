@@ -152,11 +152,7 @@ final class SecurePayloadConfig
         $this->clientId = $opts['clientId'] ?? null;
         $this->keyId = $opts['keyId'] ?? null;
         $this->hmacSecretRaw = $opts['hmacSecretRaw'] ?? null;
-        if (
-            isset($this->hmacSecretRaw) &&
-            $this->hmacSecretRaw !== null &&
-            strlen($this->hmacSecretRaw) < 32
-        ) {
+        if ($this->hmacSecretRaw !== null && strlen($this->hmacSecretRaw) < 32) {
             throw new SecurePayloadException(
                 'HMAC Secret terlalu pendek. Minimum 32 karakter (rekomendasikan 64 byte hex).',
                 SecurePayloadException::BAD_REQUEST

@@ -84,7 +84,7 @@ final class RequestVerifier
             $qStr = Canonical::canonicalQuery($query);
         } else {
             parse_str((string) $query, $qArr);
-            $qStr = Canonical::canonicalQuery(is_array($qArr) ? $qArr : []);
+            $qStr = Canonical::canonicalQuery($qArr);
         }
 
         // 4. Load Kunci

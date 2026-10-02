@@ -77,7 +77,7 @@ final class DoctorChecks
         // getenv() menangkap var yang diset di luar $_ENV (mis. SetEnvironmentVariable /
         // export shell). Gabungkan tanpa menimpa nilai $_ENV yang sudah ada.
         foreach (getenv() as $name => $value) {
-            if (is_string($name) && str_starts_with($name, 'SECURE_') && !isset($out[$name])) {
+            if (str_starts_with($name, 'SECURE_') && !isset($out[$name])) {
                 $out[$name] = (string) $value;
             }
         }

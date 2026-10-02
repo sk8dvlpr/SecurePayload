@@ -49,9 +49,6 @@ final class RequestBuilder
         $qStr = '';
         if (!empty($parts['query'])) {
             parse_str($parts['query'], $qArr);
-            if (!is_array($qArr)) {
-                $qArr = [];
-            }
             $qStr = Canonical::canonicalQuery($qArr);
         }
 
