@@ -41,7 +41,7 @@
     "express": "^4.21.2",
     "fastify": "^4.29.0",
     "typescript": "^7.0.2",
-    "vitest": "^2.1.0"
+    "vitest": "^5.0.2"
   },
   "dependencies": {
     "@stablelib/xchacha20poly1305": "^2.0.1",
