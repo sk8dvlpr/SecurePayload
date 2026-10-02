@@ -52,10 +52,8 @@ final class AzureKeyVaultKms implements Kms
             'algorithm' => 'RSA-OAEP',
             'value' => $plaintext,
             'additionalAuthenticatedData' => self::context($aad),
+            'keyName' => $keyName,
         ];
-        if ($keyName !== '') {
-            $args['keyName'] = $keyName;
-        }
         $result = call_user_func([$this->client, 'encrypt'], $args);
         $blob = self::resultField($result, 'result') ?? self::resultField($result, 'ciphertext');
         if (!is_string($blob) || $blob === '') {

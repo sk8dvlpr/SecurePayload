@@ -105,8 +105,8 @@ final class VaultKms implements Kms
             'Content-Type: application/json',
         ];
         $res = call_user_func($this->transport, 'POST', $this->address . $path, $headers, $body);
-        $status = is_array($res) ? (int) ($res['status'] ?? 0) : 0;
-        $respBody = is_array($res) ? (string) ($res['body'] ?? '') : '';
+        $status = (int) ($res['status'] ?? 0);
+        $respBody = (string) ($res['body'] ?? '');
         if ($status < 200 || $status >= 300) {
             throw new RuntimeException("Vault HTTP $status: " . $respBody);
         }

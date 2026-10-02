@@ -65,7 +65,7 @@ final class WebhookVerifier
     {
         if (function_exists('getallheaders')) {
             $fromFn = getallheaders();
-            if (is_array($fromFn) && $fromFn !== []) {
+            if ($fromFn !== []) {
                 $out = [];
                 foreach ($fromFn as $k => $v) {
                     if (is_string($k)) {
