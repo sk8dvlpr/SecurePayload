@@ -138,8 +138,9 @@ final class FileValidation
         $name = str_replace("\0", "", $name);
         $name = str_replace(["\\", "/"], "/", $name);
         $name = basename($name);
-        // Hapus karakter kontrol & RTL override
-        $name = preg_replace("/[\x00-\x1F\x7F\x{202A}-\x{202E}\x{2066}-\x{2069}]/u", "", $name) ?? "";
+        // Hapus karakter kontrol & RTL/bidi override.
+        // NUL sudah dibuang di atas — jangan sertakan \x00 di pola (PHPStan: null byte in regex).
+        $name = preg_replace('/[\x01-\x1F\x7F\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $name) ?? '';
         $name = trim($name, " \t.");
         if ($name === "" || $name === "." || $name === "..") {
             return "unnamed";
