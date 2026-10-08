@@ -38,7 +38,7 @@ jobs:
           echo "guide/dist OK ($(find guide/dist -type f | wc -l) files)"
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
