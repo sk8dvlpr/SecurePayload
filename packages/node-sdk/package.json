@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@stablelib/xchacha20poly1305": "^2.0.1",
-    "fastify-plugin": "^4.5.1",
+    "fastify-plugin": "^6.0.0",
     "tweetnacl": "^1.0.3"
   }
 }
